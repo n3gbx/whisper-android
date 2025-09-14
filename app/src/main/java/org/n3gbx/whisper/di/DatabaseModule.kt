@@ -2,6 +2,8 @@ package org.n3gbx.whisper.di
 
 import android.content.Context
 import androidx.room.Room
+import com.google.firebase.Firebase
+import com.google.firebase.firestore.firestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,4 +24,16 @@ object DatabaseModule {
             klass = MainDatabase::class.java,
             name = "whisper-database"
         ).build()
+
+    @Singleton
+    @Provides
+    fun provideFirestoreDatabase() = Firebase.firestore
+
+    @Singleton
+    @Provides
+    fun provideBookmarkDao(mainDatabase: MainDatabase) = mainDatabase.bookmarkDao()
+
+    @Singleton
+    @Provides
+    fun provideBookEpisodePlaybackCacheDao(mainDatabase: MainDatabase) = mainDatabase.bookEpisodePlaybackCache()
 }

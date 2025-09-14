@@ -1,7 +1,6 @@
 package org.n3gbx.whisper
 
 import android.annotation.SuppressLint
-import android.content.ComponentName
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,39 +17,35 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.session.MediaController
-import androidx.media3.session.MediaSession
-import androidx.media3.session.SessionToken
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.rememberNavController
-import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.serialization.json.Json
 import org.n3gbx.whisper.ui.theme.WhisperTheme
-import org.n3gbx.whisper.NavTab.Player
-import org.n3gbx.whisper.NavTab.Home
-import org.n3gbx.whisper.NavTab.Shelf
-import org.n3gbx.whisper.NavTab.Settings
 import org.n3gbx.whisper.feature.player.PlayerViewModel
 import org.n3gbx.whisper.ui.common.components.VerticalSlideTransitionWrapper
+import org.n3gbx.whisper.ui.navigation.CatalogRoot
+import org.n3gbx.whisper.ui.navigation.NavBar
+import org.n3gbx.whisper.ui.navigation.NavHost
+import org.n3gbx.whisper.ui.navigation.Player
+import org.n3gbx.whisper.ui.navigation.SettingsRoot
+import org.n3gbx.whisper.ui.navigation.LibraryRoot
+import org.n3gbx.whisper.ui.navigation.Tab
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -73,12 +68,18 @@ class MainActivity : ComponentActivity() {
     private fun RootContent() {
         val playerViewModel = hiltViewModel<PlayerViewModel>()
 
-        val navGraphs = listOf(Home, Shelf, Settings, Player)
-        val navBarTabs = listOf(Home, Shelf, Settings)
+        val navBarTabs = listOf(CatalogRoot, LibraryRoot, SettingsRoot)
         val navController = rememberNavController()
         val currentSelectedTab by navController.currentTabAsState()
-        val currentRoute by navController.currentRouteAsState()
-        val isNavBarVisible by rememberSaveable(currentRoute) { mutableStateOf(currentRoute in listOf("home", "shelf", "settings")) }
+        val currentDestination by navController.currentDestinationAsState()
+
+        val isCurrentDestinationPlayer by remember(currentDestination) {
+            mutableStateOf(currentDestination?.hasRoute(Player::class) ?: false)
+        }
+
+        val isNavBarVisible by rememberSaveable(currentDestination) {
+            mutableStateOf(currentDestination.isTab())
+        }
 
         val miniPlayerBottomOffsetDp by animateDpAsState(
             targetValue = if (isNavBarVisible) 80.dp else 0.dp,
@@ -92,7 +93,7 @@ class MainActivity : ComponentActivity() {
                 VerticalSlideTransitionWrapper(
                     isVisible = isNavBarVisible
                 ) {
-                    MainNavBar(
+                    NavBar(
                         tabs = navBarTabs,
                         selectedTab = currentSelectedTab,
                         onTabClick = {
@@ -107,20 +108,17 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                MainNavHost(
+                NavHost(
                     playerViewModel = playerViewModel,
                     navController = navController,
-                    onPlayClick = {
-
-                    }
                 )
 
                 MainMiniPlayer(
                     playerViewModel = playerViewModel,
-                    shouldHide = currentRoute == "player",
+                    shouldHide = isCurrentDestinationPlayer,
                     additionalBottomOffsetDp = miniPlayerBottomOffsetDp,
                     onClick = {
-                        navController.navigate("player_root")
+                        navController.navigate(Player())
                     }
                 )
             }
@@ -129,20 +127,20 @@ class MainActivity : ComponentActivity() {
 
     @Stable
     @Composable
-    private fun NavController.currentTabAsState(): State<NavTab> {
-        val selectedItem = remember { mutableStateOf<NavTab>(Home) }
+    private fun NavController.currentTabAsState(): State<Tab> {
+        val selectedItem = remember { mutableStateOf<Tab>(CatalogRoot) }
 
         DisposableEffect(this) {
             val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
-                when {
-                    destination.hierarchy.any { it.route == Home.route } -> {
-                        selectedItem.value = Home
+               when {
+                    destination.hierarchy.any { it.hasRoute(CatalogRoot::class) } -> {
+                        selectedItem.value = CatalogRoot
                     }
-                    destination.hierarchy.any { it.route == Shelf.route } -> {
-                        selectedItem.value = Shelf
+                    destination.hierarchy.any { it.hasRoute(LibraryRoot::class) } -> {
+                        selectedItem.value = LibraryRoot
                     }
-                    destination.hierarchy.any { it.route == Settings.route } -> {
-                        selectedItem.value = Settings
+                    destination.hierarchy.any { it.hasRoute(SettingsRoot::class) } -> {
+                        selectedItem.value = SettingsRoot
                     }
                 }
 
@@ -157,11 +155,11 @@ class MainActivity : ComponentActivity() {
 
     @Stable
     @Composable
-    private fun NavController.currentRouteAsState(): State<String?> {
-        val selectedItem = remember { mutableStateOf<String?>(null) }
+    private fun NavController.currentDestinationAsState(): State<NavDestination?> {
+        val selectedItem = remember { mutableStateOf<NavDestination?>(null) }
         DisposableEffect(this) {
             val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
-                selectedItem.value = destination.route
+                selectedItem.value = destination
             }
             addOnDestinationChangedListener(listener)
 
@@ -172,13 +170,33 @@ class MainActivity : ComponentActivity() {
         return selectedItem
     }
 
-    private fun NavController.navigateToRootTab(rootScreen: NavTab) {
-        navigate(rootScreen.route) {
+    private fun NavController.navigateToRootTab(tab: Tab) {
+        navigate(tab) {
             launchSingleTop = true
             restoreState = true
             popUpTo(graph.findStartDestination().id) {
                 saveState = true
             }
+        }
+    }
+
+    private fun NavDestination?.isTab(): Boolean {
+        if (this == null) return false
+        return listOf(CatalogRoot, LibraryRoot, SettingsRoot).any { tab ->
+            this.hierarchy.any { it.hasRoute(tab::class) }
+        }
+    }
+
+    inline fun <reified T> Sequence<NavDestination>.getRouteAs(): T? {
+        return mapNotNull { it.getRouteAs<T>() }.firstOrNull()
+    }
+
+    inline fun <reified T> NavDestination.getRouteAs(): T? {
+        val routeString = this.route ?: return null
+        return try {
+            Json.decodeFromString(routeString)
+        } catch (e: Exception) {
+            null
         }
     }
 }

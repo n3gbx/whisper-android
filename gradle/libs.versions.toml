@@ -1,8 +1,9 @@
 [versions]
+kotlin = "2.0.21"
 agp = "8.7.1"
 hilt = "1.2.0"
 daggerHilt = "2.51.1"
-kotlin = "2.0.20"
+kotlinx = "1.7.3"
 coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -73,6 +74,7 @@ google-identity = { group = "com.google.android.libraries.identity.googleid", na
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name="firebase-firestore" }
 
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "androidxCredentials" }
 androidx-credentials-services = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "androidxCredentials" }
@@ -83,10 +85,13 @@ androidx-media3-exoplayer = { group = "androidx.media3", name="media3-exoplayer"
 androidx-media3-session = { group = "androidx.media3", name="media3-session", version.ref="media3"}
 androidx-media3-ui = { group = "androidx.media3", name="media3-ui", version.ref="media3"}
 androidx-media3-common = { group = "androidx.media3", name="media3-common", version.ref="media3"}
+androidx-media3-common-ktx = { group = "androidx.media3", name="media3-common-ktx", version.ref="media3"}
 
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name="kotlinx-serialization-json", version.ref="kotlinx"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 

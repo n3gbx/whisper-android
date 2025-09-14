@@ -1,6 +1,8 @@
 package org.n3gbx.whisper.feature.player
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,16 +11,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Notes
@@ -37,23 +43,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import org.n3gbx.whisper.model.BookEpisode
+import org.n3gbx.whisper.ui.common.utils.convertToTime
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    bookId: String?,
     navigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    LaunchedEffect(bookId) {
+        viewModel.setBook(bookId)
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvents.collect { event ->
+            when (event) {
+                PlayerUiEvent.NavigateBack -> {
+                    navigateBack()
+                }
+                is PlayerUiEvent.ShowMessage -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     PlayerContent(
         uiState = uiState,
@@ -62,11 +93,12 @@ fun PlayerScreen(
         onRewindForwardClick = viewModel::onRewindForwardButtonClick,
         onSliderValueChange = viewModel::onSliderValueChange,
         onSliderValueChangeFinished = viewModel::onSliderValueChangeFinished,
+        onBookmarkButtonClick = viewModel::onBookmarkButtonClick,
+        onEpisodeClick = viewModel::onEpisodeClick,
         onBackButtonClick = navigateBack
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerContent(
     modifier: Modifier = Modifier,
@@ -75,44 +107,21 @@ private fun PlayerContent(
     onRewindBackwardClick: () -> Unit = {},
     onRewindForwardClick: () -> Unit = {},
     onSliderValueChange: (Float) -> Unit = {},
-    onSliderValueChangeFinished: () -> Unit = {},
+    onSliderValueChangeFinished: (Float) -> Unit = {},
     onMoreButtonClick: () -> Unit = {},
     onBookmarkButtonClick: () -> Unit = {},
+    onEpisodeClick: (Int) -> Unit = {},
     onBackButtonClick: () -> Unit
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBackButtonClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = onMoreButtonClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Notes,
-                            contentDescription = "More"
-                        )
-                    }
-                    IconButton(
-                        onClick = onBookmarkButtonClick
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.BookmarkBorder,
-                            contentDescription = "Bookmark"
-                        )
-                    }
-                },
+            Toolbar(
+                title = uiState.book?.currentEpisode?.id,
+                isBookmarked = uiState.book?.isBookmarked,
+                onBackButtonClick = onBackButtonClick,
+                onBookmarkButtonClick = onBookmarkButtonClick,
+                onMoreButtonClick = onMoreButtonClick
             )
         },
     ) { padding ->
@@ -120,18 +129,19 @@ private fun PlayerContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
             Cover(
-                url = uiState.currentMedia?.mediaMetadata?.artworkUri.toString()
+                url = uiState.book?.coverUrl
             )
             Heading(
-                title = uiState.currentMedia?.mediaMetadata?.title.toString(),
-                author = uiState.currentMedia?.mediaMetadata?.artist.toString(),
+                title = uiState.book?.title.toString(),
+                author = uiState.book?.author.toString(),
             )
             Slider(
-                currentTime = uiState.formattedCurrentTime,
-                remainingTime = uiState.formattedRemainingTime,
+                currentTime = uiState.currentTime.convertToTime(),
+                remainingTime = uiState.remainingTime.convertToTime(),
                 value = uiState.sliderValue,
                 valueRange = uiState.sliderValueRange,
                 onValueChange = onSliderValueChange,
@@ -144,9 +154,68 @@ private fun PlayerContent(
                 onRewindBackwardClick = onRewindBackwardClick,
                 onRewindForwardClick = onRewindForwardClick
             )
-            Episodes()
+            Episodes(
+                currentEpisodeIndex = uiState.book?.currentEpisodeIndex,
+                episodes = uiState.book?.episodes,
+                onEpisodeClick = onEpisodeClick
+            )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Toolbar(
+    modifier: Modifier = Modifier,
+    title: String?,
+    isBookmarked: Boolean?,
+    onBackButtonClick: () -> Unit,
+    onBookmarkButtonClick: () -> Unit,
+    onMoreButtonClick: () -> Unit
+) {
+    val bookmarkIcon =
+        if (isBookmarked == true) Icons.Rounded.Bookmark
+        else Icons.Rounded.BookmarkBorder
+
+    TopAppBar(
+        modifier = modifier,
+        title = {
+            title?.let {
+                Text(
+                    modifier = Modifier.basicMarquee(),
+                    text = "Episode: $title",
+                )
+            }
+        },
+        navigationIcon = {
+            IconButton(
+                onClick = onBackButtonClick
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ArrowBack,
+                    contentDescription = "Back"
+                )
+            }
+        },
+        actions = {
+            IconButton(
+                onClick = onMoreButtonClick
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Notes,
+                    contentDescription = "More"
+                )
+            }
+            IconButton(
+                onClick = onBookmarkButtonClick
+            ) {
+                Icon(
+                    imageVector = bookmarkIcon,
+                    contentDescription = "Bookmark"
+                )
+            }
+        }
+    )
 }
 
 @Composable
@@ -158,6 +227,7 @@ private fun Cover(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(1f)
+            .padding(top = 16.dp)
     ) {
         AsyncImage(
             modifier = Modifier
@@ -174,14 +244,67 @@ private fun Cover(
 @Composable
 private fun Episodes(
     modifier: Modifier = Modifier,
+    currentEpisodeIndex: Int?,
+    episodes: List<BookEpisode>?,
+    onEpisodeClick: (Int) -> Unit
 ) {
-    Column(
-        modifier = modifier.padding(top = 32.dp)
-    ) {
-        Text(
-            text = "Episodes",
-            style = MaterialTheme.typography.titleMedium
-        )
+    if (episodes != null && currentEpisodeIndex != null) {
+        Column(
+            modifier = modifier.padding(top = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Episodes",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                episodes.forEachIndexed { index, episode ->
+                    val color =
+                        if (index == currentEpisodeIndex) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface
+
+                    var episodeDuration by remember { mutableStateOf<Long?>(null) }
+
+                    LaunchedEffect(index) {
+                        episodeDuration = episode.retrieveDurationTimeFromMetadata()
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .clickable {
+                                onEpisodeClick(index)
+                            },
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "${index + 1}.",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = color
+                        )
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = "${episode.id} (${episode.playbackCache?.progressPercentage ?: 0}%)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = color,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = 1,
+                        )
+                        episodeDuration?.let {
+                            Text(
+                                text = it.convertToTime(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -222,7 +345,7 @@ private fun Slider(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (newValue: Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
+    onValueChangeFinished: (currentValue: Float) -> Unit,
 ) {
     Column(
         modifier = modifier,
@@ -232,7 +355,9 @@ private fun Slider(
             value = value,
             valueRange = valueRange,
             onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
+            onValueChangeFinished = {
+                onValueChangeFinished(value)
+            },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -1,8 +1,8 @@
 package org.n3gbx.whisper
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -33,7 +34,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +69,7 @@ fun MainMiniPlayer(
             .padding(bottom = bottomOffsetDp)
     ) {
         VerticalSlideTransitionWrapper(
-            isVisible = uiState.currentMedia != null && !shouldHide,
+            isVisible = uiState.book != null && !shouldHide,
             initialOffsetY = { fullHeight -> fullHeight + bottomOffsetPx },
         ) {
             Card(
@@ -93,17 +93,17 @@ fun MainMiniPlayer(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Cover(
-                            url = uiState.currentMedia?.mediaMetadata?.artworkUri.toString()
+                            url = uiState.book?.coverUrl
                         )
                         Heading(
-                            title = uiState.currentMedia?.mediaMetadata?.title.toString(),
-                            author = uiState.currentMedia?.mediaMetadata?.artist.toString(),
+                            title = uiState.book?.title.toString(),
+                            subtitle = uiState.book?.currentEpisode?.id.toString(),
                         )
                         Controls(
                             isPlaying = uiState.isPlaying,
                             isLoading = uiState.isLoading,
                             onPlayPauseClick = playerViewModel::onPlayPauseButtonClick,
-                            onStopClick = playerViewModel::onStopButtonClick
+                            onDismissClick = playerViewModel::onDismissButtonClick
                         )
                     }
                     ProgressIndicator(
@@ -152,7 +152,7 @@ private fun Cover(
 private fun RowScope.Heading(
     modifier: Modifier = Modifier,
     title: String,
-    author: String,
+    subtitle: String,
 ) {
     Column(
         modifier = modifier
@@ -160,12 +160,14 @@ private fun RowScope.Heading(
             .padding(horizontal = 12.dp)
     ) {
         Text(
+            modifier = Modifier.basicMarquee(),
             text = title,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = author,
+            modifier = Modifier.basicMarquee(),
+            text = "Episode: $subtitle",
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall,
@@ -180,7 +182,7 @@ private fun RowScope.Controls(
     isPlaying: Boolean,
     isLoading: Boolean,
     onPlayPauseClick: () -> Unit,
-    onStopClick: () -> Unit,
+    onDismissClick: () -> Unit,
 ) {
     CompositionLocalProvider(
         LocalMinimumInteractiveComponentEnforcement provides false,
@@ -207,11 +209,11 @@ private fun RowScope.Controls(
 
             }
             IconButton(
-                onClick = onStopClick
+                onClick = onDismissClick
             ) {
                 Icon(
-                    imageVector = Icons.Default.Stop,
-                    contentDescription = "Stop"
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Dismiss"
                 )
             }
         }

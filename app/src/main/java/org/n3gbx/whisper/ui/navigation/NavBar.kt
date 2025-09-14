@@ -1,7 +1,6 @@
-package org.n3gbx.whisper
+package org.n3gbx.whisper.ui.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.rounded.Bookmarks
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Settings
@@ -18,11 +17,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun MainNavBar(
+fun NavBar(
     modifier: Modifier = Modifier,
-    tabs: List<NavTab>,
-    selectedTab: NavTab,
-    onTabClick: (NavTab) -> Unit,
+    tabs: List<Tab>,
+    selectedTab: Tab,
+    onTabClick: (Tab) -> Unit,
 ) {
     NavigationBar(
         modifier = modifier.shadow(10.dp),
@@ -30,23 +29,29 @@ fun MainNavBar(
         tonalElevation = 0.dp
     ) {
         tabs.forEach { tab ->
+            val icon = when (tab) {
+                is CatalogRoot -> Icons.Rounded.Home
+                is LibraryRoot -> Icons.Rounded.Bookmarks
+                is SettingsRoot -> Icons.Rounded.Settings
+            }
+            val label = when (tab) {
+                is CatalogRoot -> "Catalog"
+                is LibraryRoot -> "Library"
+                is SettingsRoot -> "Settings"
+            }
+
             NavigationBarItem(
                 selected = selectedTab == tab,
                 onClick = {
                     onTabClick(tab)
                 },
                 label = {
-                    Text(tab.label)
+                    Text(text = label)
                 },
                 icon = {
                     Icon(
-                        imageVector = when (tab) {
-                            is NavTab.Home -> Icons.Rounded.Home
-                            is NavTab.Shelf -> Icons.Rounded.Bookmarks
-                            is NavTab.Settings -> Icons.Rounded.Settings
-                            else -> Icons.Default.Home
-                        },
-                        contentDescription = tab.label
+                        imageVector = icon,
+                        contentDescription = label
                     )
                 },
                 colors =  NavigationBarItemDefaults.colors().copy(
@@ -59,14 +64,4 @@ fun MainNavBar(
             )
         }
     }
-}
-
-sealed class NavTab(
-    val route: String,
-    val label: String,
-) {
-    data object Home : NavTab("home_root", "Home")
-    data object Shelf : NavTab("shelf_root", "Shelf")
-    data object Settings : NavTab("settings_root", "Settings")
-    data object Player : NavTab("player_root", "Player")
 }
