@@ -21,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -97,11 +96,11 @@ fun MainMiniPlayer(
                         )
                         Heading(
                             title = uiState.book?.title.toString(),
-                            subtitle = uiState.book?.currentEpisode?.id.toString(),
+                            subtitle = uiState.book?.recentEpisode?.id.toString(),
                         )
                         Controls(
                             isPlaying = uiState.isPlaying,
-                            isLoading = uiState.isLoading,
+                            isLoading = uiState.isBuffering,
                             onPlayPauseClick = playerViewModel::onPlayPauseButtonClick,
                             onDismissClick = playerViewModel::onDismissButtonClick
                         )

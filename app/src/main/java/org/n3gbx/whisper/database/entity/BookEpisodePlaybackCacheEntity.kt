@@ -18,7 +18,7 @@ data class BookEpisodePlaybackCacheEntity(
     @PrimaryKey val id: String = Uuid.random().toString(),
     val bookId: String,
     val episodeId: String,
-    val durationTime: Long,
+    val duration: Long,
     val lastTime: Long,
     val lastUpdatedAt: LocalDateTime
 )

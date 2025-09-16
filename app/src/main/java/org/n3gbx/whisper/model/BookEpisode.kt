@@ -1,24 +1,11 @@
 package org.n3gbx.whisper.model
 
-import android.media.MediaMetadataRetriever
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import org.n3gbx.whisper.Constants.UNSET_TIME
 
 data class BookEpisode(
     val id: String,
+    val bookId: String,
     val url: String,
+    val duration: Long = UNSET_TIME,
     val playbackCache: BookEpisodePlaybackCache?
-) {
-    suspend fun retrieveDurationTimeFromMetadata(): Long? = withContext(Dispatchers.IO) {
-        val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(url, HashMap())
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        } finally {
-            retriever.release()
-        }
-    }
-}
+)

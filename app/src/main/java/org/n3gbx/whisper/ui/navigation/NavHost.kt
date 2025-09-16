@@ -67,7 +67,12 @@ fun NavGraphBuilder.libraryGraph(
         startDestination = Library
     ) {
         composable<Library> {
-            LibraryScreen()
+            LibraryScreen(
+                viewModel = hiltViewModel(),
+                navigateToPlayer = { bookId ->
+                    navController.navigate(Player(bookId))
+                }
+            )
         }
     }
 }

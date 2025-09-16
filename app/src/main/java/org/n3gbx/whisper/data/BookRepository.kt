@@ -1,13 +1,24 @@
 package org.n3gbx.whisper.data
 
+import android.media.MediaMetadataRetriever
 import androidx.room.withTransaction
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.toObject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.withContext
+import org.n3gbx.whisper.Constants.UNSET_TIME
 import org.n3gbx.whisper.data.dto.BookDto
 import org.n3gbx.whisper.data.dto.BookEpisodeDto
 import org.n3gbx.whisper.database.MainDatabase
@@ -21,7 +32,9 @@ import org.n3gbx.whisper.model.BookEpisodePlaybackCache
 import org.n3gbx.whisper.utils.snapshotFlow
 import java.time.LocalDateTime
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class BookRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val database: MainDatabase,
@@ -29,6 +42,7 @@ class BookRepository @Inject constructor(
     private val bookEpisodePlaybackCacheDao: BookEpisodePlaybackCacheDao
 ) {
     private val booksCollection = "books"
+    private val episodeDurationCache = mutableMapOf<Pair<String, String>, Long>()
 
     fun getCachedBooks(): Flow<List<Book>> {
         return bookEpisodePlaybackCacheDao.getAll().flatMapConcat { bookEpisodesPlaybackCaches ->
@@ -80,10 +94,7 @@ class BookRepository @Inject constructor(
             firestoreBooks.mapNotNull { firestoreBook ->
                 val bookmark = bookmarks.findBookmarkByBookId(firestoreBook.id)
 
-                firestoreBook.mapToBook(
-                    bookmark = bookmark,
-                    bookEpisodesPlaybackCaches = emptyList()
-                )
+                firestoreBook.mapToBook(bookmark = bookmark)
             }
         }
     }
@@ -91,14 +102,14 @@ class BookRepository @Inject constructor(
     suspend fun saveBookEpisodePlayback(
         bookId: String,
         episodeId: String,
-        durationTime: Long,
+        duration: Long,
         currentTime: Long
     ) {
         database.withTransaction {
             val newEntity = BookEpisodePlaybackCacheEntity(
                 bookId = bookId,
                 episodeId = episodeId,
-                durationTime = durationTime,
+                duration = duration,
                 lastTime = currentTime,
                 lastUpdatedAt = LocalDateTime.now()
             )
@@ -106,12 +117,14 @@ class BookRepository @Inject constructor(
         }
     }
 
-    private fun BookDto.mapToBook(
+    private suspend fun BookDto.mapToBook(
         bookmark: BookmarkEntity?,
         bookEpisodesPlaybackCaches: List<BookEpisodePlaybackCacheEntity> = emptyList()
     ): Book? {
         val isBookmarked = bookmark != null
-        val episodes = episodes.mapToBookEpisodes(bookEpisodesPlaybackCaches)
+
+        val episodes = mapToBookEpisodes(bookEpisodesPlaybackCaches).withDurations()
+
         val currentEpisode = episodes
             .sortedByDescending { it.playbackCache?.lastUpdatedAt }
             .firstOrNull { it.playbackCache?.isFinished?.not() ?: true }
@@ -125,7 +138,7 @@ class BookRepository @Inject constructor(
                 coverUrl = coverUrl,
                 description = description,
                 isBookmarked = isBookmarked,
-                currentEpisode = currentEpisode,
+                recentEpisode = currentEpisode,
                 episodes = episodes
             )
         } else {
@@ -133,13 +146,13 @@ class BookRepository @Inject constructor(
         }
     }
 
-    private fun List<BookEpisodeDto>.mapToBookEpisodes(
+    private fun BookDto.mapToBookEpisodes(
         playbackCaches: List<BookEpisodePlaybackCacheEntity> = emptyList()
-    ) = map { bookEpisode ->
+    ) = episodes.map { bookEpisode ->
         val playbackCache =
             playbackCaches.firstOrNull { it.episodeId == bookEpisode.episodeId }?.let {
                 BookEpisodePlaybackCache(
-                    durationTime = it.durationTime,
+                    duration = it.duration,
                     lastTime = it.lastTime,
                     lastUpdatedAt = it.lastUpdatedAt
                 )
@@ -147,9 +160,26 @@ class BookRepository @Inject constructor(
 
         BookEpisode(
             id = bookEpisode.episodeId,
+            bookId = this.id,
             url = bookEpisode.episodeUrl,
             playbackCache = playbackCache
         )
+    }
+
+    private suspend fun List<BookEpisode>.withDurations(): List<BookEpisode> = coroutineScope {
+        map { episode ->
+            withContext(Dispatchers.IO) {
+                async {
+                    if (episode.duration == UNSET_TIME) {
+                        val duration = episode.tryGetCachedDurationBlocking()
+
+                        episode.copy(duration = duration)
+                    } else {
+                        episode
+                    }
+                }
+            }
+        }.awaitAll()
     }
 
     private fun List<BookmarkEntity>.findBookmarkByBookId(bookId: String) =
@@ -183,4 +213,33 @@ class BookRepository @Inject constructor(
                     document.toObject<BookDto>()?.copy(id = document.id)
                 }
             }
+
+    private fun BookEpisode.tryGetCachedDurationBlocking(): Long {
+        val cacheKey = bookId to id
+
+        // Return cached duration if available
+        episodeDurationCache[cacheKey]?.let { return it }
+
+        // Try retrieving metadata duration
+        getMetadataDurationBlocking()?.let { retrievedDuration ->
+            episodeDurationCache[cacheKey] = retrievedDuration
+            return retrievedDuration
+        }
+
+        // Fallback
+        return playbackCache?.duration ?: UNSET_TIME
+    }
+
+    private fun BookEpisode.getMetadataDurationBlocking(): Long? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(url, HashMap())
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        } finally {
+            retriever.release()
+        }
+    }
 }

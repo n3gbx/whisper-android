@@ -73,12 +73,16 @@ class MainActivity : ComponentActivity() {
         val currentSelectedTab by navController.currentTabAsState()
         val currentDestination by navController.currentDestinationAsState()
 
+        val navigateToTab: (tab: Tab) -> Unit = {
+            navController.navigateToTab(it)
+        }
+
         val isCurrentDestinationPlayer by remember(currentDestination) {
             mutableStateOf(currentDestination?.hasRoute(Player::class) ?: false)
         }
 
         val isNavBarVisible by rememberSaveable(currentDestination) {
-            mutableStateOf(currentDestination.isTab())
+            mutableStateOf(currentDestination.isRootTab())
         }
 
         val miniPlayerBottomOffsetDp by animateDpAsState(
@@ -96,9 +100,7 @@ class MainActivity : ComponentActivity() {
                     NavBar(
                         tabs = navBarTabs,
                         selectedTab = currentSelectedTab,
-                        onTabClick = {
-                            navController.navigateToRootTab(it)
-                        }
+                        onTabClick = navigateToTab
                     )
                 }
             },
@@ -170,7 +172,7 @@ class MainActivity : ComponentActivity() {
         return selectedItem
     }
 
-    private fun NavController.navigateToRootTab(tab: Tab) {
+    private fun NavController.navigateToTab(tab: Tab) {
         navigate(tab) {
             launchSingleTop = true
             restoreState = true
@@ -180,7 +182,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun NavDestination?.isTab(): Boolean {
+    private fun NavDestination?.isRootTab(): Boolean {
         if (this == null) return false
         return listOf(CatalogRoot, LibraryRoot, SettingsRoot).any { tab ->
             this.hierarchy.any { it.hasRoute(tab::class) }

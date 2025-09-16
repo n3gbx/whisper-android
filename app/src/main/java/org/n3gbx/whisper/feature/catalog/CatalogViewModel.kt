@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -11,14 +12,19 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.n3gbx.whisper.data.BookRepository
+import org.n3gbx.whisper.data.BookmarkRepository
 import javax.inject.Inject
 
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
+    private val bookmarkRepository: BookmarkRepository,
 ): ViewModel() {
 
     private val searchQueryState = MutableStateFlow<String?>(null)
@@ -27,7 +33,6 @@ class CatalogViewModel @Inject constructor(
     val uiState: StateFlow<CatalogUiState> = _uiState
 
     init {
-        observeBooks()
         observeSearchQuery()
     }
 
@@ -45,16 +50,9 @@ class CatalogViewModel @Inject constructor(
         }
     }
 
-    private fun observeBooks() {
+    fun onBookmarkButtonClick(bookId: String) {
         viewModelScope.launch {
-            bookRepository.getBooks().collect { books ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        books = books
-                    )
-                }
-            }
+            bookmarkRepository.changeBookmark(bookId)
         }
     }
 
@@ -62,7 +60,7 @@ class CatalogViewModel @Inject constructor(
         combine(
             searchQueryState,
             searchQueryState
-                .debounce(200)
+                .debounce(300)
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
                     bookRepository.getBooks().map { items ->

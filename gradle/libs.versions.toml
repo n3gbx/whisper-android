@@ -26,6 +26,7 @@ androidxCredentials = "1.5.0"
 googleid = "1.1.1"
 splashscreen = "1.0.1"
 media3 = "1.8.0"
+shimmer = "1.3.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -88,6 +89,8 @@ androidx-media3-common = { group = "androidx.media3", name="media3-common", vers
 androidx-media3-common-ktx = { group = "androidx.media3", name="media3-common-ktx", version.ref="media3"}
 
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name="kotlinx-serialization-json", version.ref="kotlinx"}
+
+shimmer-compose = { group = "com.valentinilk.shimmer", name="compose-shimmer", version.ref="shimmer"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

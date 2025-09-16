@@ -24,8 +24,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Bookmark
-import androidx.compose.material.icons.rounded.BookmarkBorder
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Replay10
@@ -43,9 +41,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import org.n3gbx.whisper.model.BookEpisode
+import org.n3gbx.whisper.ui.common.components.BookmarkIcon
+import org.n3gbx.whisper.ui.common.components.Loading
 import org.n3gbx.whisper.ui.common.utils.convertToTime
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 
@@ -117,7 +114,7 @@ private fun PlayerContent(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Toolbar(
-                title = uiState.book?.currentEpisode?.id,
+                title = uiState.book?.recentEpisode?.id,
                 isBookmarked = uiState.book?.isBookmarked,
                 onBackButtonClick = onBackButtonClick,
                 onBookmarkButtonClick = onBookmarkButtonClick,
@@ -135,11 +132,16 @@ private fun PlayerContent(
             Cover(
                 url = uiState.book?.coverUrl
             )
-            Heading(
-                title = uiState.book?.title.toString(),
-                author = uiState.book?.author.toString(),
-            )
+            if (uiState.isLoading) {
+                HeadingLoading()
+            } else {
+                Heading(
+                    title = uiState.book?.title.toString(),
+                    author = uiState.book?.author.toString(),
+                )
+            }
             Slider(
+                isEnabled = !uiState.shouldDisableControls,
                 currentTime = uiState.currentTime.convertToTime(),
                 remainingTime = uiState.remainingTime.convertToTime(),
                 value = uiState.sliderValue,
@@ -149,13 +151,14 @@ private fun PlayerContent(
             )
             Controls(
                 isPlaying = uiState.isPlaying,
-                isLoading = uiState.isLoading,
+                isBuffering = uiState.isBuffering,
+                isEnabled = !uiState.shouldDisableControls,
                 onPlayPauseClick = onPlayPauseClick,
                 onRewindBackwardClick = onRewindBackwardClick,
                 onRewindForwardClick = onRewindForwardClick
             )
             Episodes(
-                currentEpisodeIndex = uiState.book?.currentEpisodeIndex,
+                recentEpisodeIndex = uiState.book?.recentEpisodeIndex,
                 episodes = uiState.book?.episodes,
                 onEpisodeClick = onEpisodeClick
             )
@@ -173,10 +176,6 @@ private fun Toolbar(
     onBookmarkButtonClick: () -> Unit,
     onMoreButtonClick: () -> Unit
 ) {
-    val bookmarkIcon =
-        if (isBookmarked == true) Icons.Rounded.Bookmark
-        else Icons.Rounded.BookmarkBorder
-
     TopAppBar(
         modifier = modifier,
         title = {
@@ -209,9 +208,8 @@ private fun Toolbar(
             IconButton(
                 onClick = onBookmarkButtonClick
             ) {
-                Icon(
-                    imageVector = bookmarkIcon,
-                    contentDescription = "Bookmark"
+                BookmarkIcon(
+                    isBookmarked = isBookmarked == true
                 )
             }
         }
@@ -244,11 +242,11 @@ private fun Cover(
 @Composable
 private fun Episodes(
     modifier: Modifier = Modifier,
-    currentEpisodeIndex: Int?,
+    recentEpisodeIndex: Int?,
     episodes: List<BookEpisode>?,
     onEpisodeClick: (Int) -> Unit
 ) {
-    if (episodes != null && currentEpisodeIndex != null) {
+    if (episodes != null && recentEpisodeIndex != null) {
         Column(
             modifier = modifier.padding(top = 32.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -262,22 +260,14 @@ private fun Episodes(
             ) {
                 episodes.forEachIndexed { index, episode ->
                     val color =
-                        if (index == currentEpisodeIndex) MaterialTheme.colorScheme.primary
+                        if (index == recentEpisodeIndex) MaterialTheme.colorScheme.primary
                         else MaterialTheme.colorScheme.onSurface
-
-                    var episodeDuration by remember { mutableStateOf<Long?>(null) }
-
-                    LaunchedEffect(index) {
-                        episodeDuration = episode.retrieveDurationTimeFromMetadata()
-                    }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
-                            .clickable {
-                                onEpisodeClick(index)
-                            },
+                            .clickable { onEpisodeClick(index) },
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -294,17 +284,37 @@ private fun Episodes(
                             overflow = TextOverflow.Ellipsis,
                             maxLines = 1,
                         )
-                        episodeDuration?.let {
-                            Text(
-                                text = it.convertToTime(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outlineVariant
-                            )
-                        }
+                        Text(
+                            text = episode.duration.convertToTime(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HeadingLoading(
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(top = 32.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.7f)
+                .height(24.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.5f)
+                .height(16.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
     }
 }
 
@@ -314,32 +324,30 @@ private fun Heading(
     title: String,
     author: String,
 ) {
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 32.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(top = 32.dp)
     ) {
-        Column {
-            Text(
-                text = title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleLarge,
-            )
-            Text(
-                text = author,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge,
-            )
-        }
+        Text(
+            text = title,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Text(
+            text = author,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyLarge,
+        )
     }
 }
 
 @Composable
 private fun Slider(
     modifier: Modifier = Modifier,
+    isEnabled: Boolean,
     currentTime: String,
     remainingTime: String,
     value: Float,
@@ -353,6 +361,7 @@ private fun Slider(
         Slider(
             modifier = Modifier.fillMaxWidth(),
             value = value,
+            enabled = isEnabled,
             valueRange = valueRange,
             onValueChange = onValueChange,
             onValueChangeFinished = {
@@ -384,7 +393,8 @@ private fun Slider(
 private fun Controls(
     modifier: Modifier = Modifier,
     isPlaying: Boolean = false,
-    isLoading: Boolean = false,
+    isBuffering: Boolean = false,
+    isEnabled: Boolean = false,
     onPlayPauseClick: () -> Unit = {},
     onSpeedClick: () -> Unit = {},
     onSleepTimerClick: () -> Unit = {},
@@ -402,7 +412,8 @@ private fun Controls(
             LocalMinimumInteractiveComponentEnforcement provides false,
         ) {
             IconButton(
-                onClick = onSpeedClick
+                onClick = onSpeedClick,
+                enabled = isEnabled
             ) {
                 Icon(
                     imageVector = Icons.Filled.Speed,
@@ -410,7 +421,8 @@ private fun Controls(
                 )
             }
             IconButton(
-                onClick = onRewindBackwardClick
+                onClick = onRewindBackwardClick,
+                enabled = isEnabled
             ) {
                 Icon(
                     modifier = Modifier.size(48.dp),
@@ -423,12 +435,12 @@ private fun Controls(
                     .size(64.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.onSurface)
-                    .clickable {
+                    .clickable(enabled = isEnabled) {
                         onPlayPauseClick()
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (isLoading) {
+                if (isBuffering) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(32.dp),
                         color = MaterialTheme.colorScheme.surface,
@@ -443,7 +455,8 @@ private fun Controls(
                 }
             }
             IconButton(
-                onClick = onRewindForwardClick
+                onClick = onRewindForwardClick,
+                enabled = isEnabled
             ) {
                 Icon(
                     modifier = Modifier.size(48.dp),
@@ -452,7 +465,8 @@ private fun Controls(
                 )
             }
             IconButton(
-                onClick = onSleepTimerClick
+                onClick = onSleepTimerClick,
+                enabled = isEnabled
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Timer,

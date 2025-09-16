@@ -12,9 +12,7 @@ class BookmarkRepository @Inject constructor(
     private val database: MainDatabase
 ) {
 
-    suspend fun changeBookmark(
-        bookId: String
-    ) {
+    suspend fun changeBookmark(bookId: String) {
         database.withTransaction {
             val bookmark = bookmarkDao.getByBookId(bookId).firstOrNull()
             if (bookmark == null) {

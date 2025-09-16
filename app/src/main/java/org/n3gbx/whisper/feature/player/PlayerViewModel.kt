@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -48,7 +49,7 @@ class PlayerViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val bookmarkRepository: BookmarkRepository,
     @ApplicationContext private val context: Context
-): ViewModel() {
+) : ViewModel() {
     private var currentBookId: String? = null
     private var bookJob: Job? = null
     private val rewindTimeMs = 10000L
@@ -118,7 +119,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onEpisodeClick(index: Int) {
-        if (_uiState.value.book?.currentEpisodeIndex != index) {
+        if (_uiState.value.book?.recentEpisodeIndex != index) {
             if (_uiState.getEpisodeByIndex(index)?.playbackCache?.isFinished == true) {
                 controller.seekTo(index, 0)
             } else {
@@ -138,15 +139,15 @@ class PlayerViewModel @Inject constructor(
 
     private suspend fun cacheEpisodePlaybackPosition(
         episodeId: String?,
-        durationTime: Long,
+        duration: Long,
         currentTime: Long
     ) {
         currentBookId?.let { bookId ->
-            if (durationTime != C.TIME_UNSET && episodeId != null) {
+            if (duration != C.TIME_UNSET && episodeId != null) {
                 bookRepository.saveBookEpisodePlayback(
                     bookId = bookId,
                     episodeId = episodeId,
-                    durationTime = durationTime,
+                    duration = duration,
                     currentTime = currentTime
                 )
             }
@@ -159,11 +160,11 @@ class PlayerViewModel @Inject constructor(
                 delay(30_000)
 
                 val episodeId = controller.currentMediaItem?.mediaId
-                val durationTime = controller.duration
+                val duration = controller.duration
                 val currentTime = controller.currentPosition
 
                 episodeId?.let {
-                    cacheEpisodePlaybackPosition(episodeId, durationTime, currentTime)
+                    cacheEpisodePlaybackPosition(episodeId, duration, currentTime)
                 }
             }
         }
@@ -175,8 +176,8 @@ class PlayerViewModel @Inject constructor(
                 yield()
                 controller.duration.also { duration ->
                     if (duration != C.TIME_UNSET) {
-                        if (_uiState.value.durationTime != duration) {
-                            _uiState.updateDurationTime(duration)
+                        if (_uiState.value.duration != duration) {
+                            _uiState.updateDuration(duration)
                         }
 
                         controller.currentPosition.also { currentPosition ->
@@ -213,30 +214,38 @@ class PlayerViewModel @Inject constructor(
         bookJob?.cancel()
 
         bookJob = viewModelScope.launch {
-            bookRepository.getBook(bookId).collect { book ->
-                if (book == null) {
-                    navigateBackWithMessage("Not a valid book identifier")
-                } else {
-                    if (controller.currentMediaItem == null || currentBookId != bookId) {
-                        val mediaItems = book.episodesAsMediaItems()
-                        val currentIndex = book.currentEpisodeIndex
-                        val currentTime = book.currentEpisode.playbackCache?.lastTime ?: 0
-
-                        controller.stop()
-                        controller.clearMediaItems()
-                        controller.setMediaItems(mediaItems, currentIndex, currentTime)
-                        controller.prepare()
-
-                        _uiState.updateSliderValueAndCurrentTime(currentTime.toFloat())
-                    }
-
+            bookRepository.getBook(bookId)
+                .onStart {
                     _uiState.update {
-                        it.copy(book = book)
+                        it.copy(isLoading = true)
                     }
+                }.collect { book ->
+                    if (book == null) {
+                        navigateBackWithMessage("Not a valid book identifier")
+                    } else {
+                        if (controller.currentMediaItem == null || currentBookId != bookId) {
+                            val mediaItems = book.episodesAsMediaItems()
+                            val currentIndex = book.recentEpisodeIndex
+                            val currentTime = book.recentEpisode.playbackCache?.lastTime ?: 0
 
-                    currentBookId = bookId
+                            controller.stop()
+                            controller.clearMediaItems()
+                            controller.setMediaItems(mediaItems, currentIndex, currentTime)
+                            controller.prepare()
+
+                            _uiState.updateSliderValueAndCurrentTime(currentTime.toFloat())
+                        }
+
+                        _uiState.update {
+                            it.copy(
+                                book = book,
+                                isLoading = false
+                            )
+                        }
+
+                        currentBookId = bookId
+                    }
                 }
-            }
         }
     }
 
@@ -286,9 +295,9 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
-    private fun MutableStateFlow<PlayerUiState>.updateDurationTime(value: Long) {
+    private fun MutableStateFlow<PlayerUiState>.updateDuration(value: Long) {
         update {
-            it.copy(durationTime = value)
+            it.copy(duration = value)
         }
     }
 
@@ -308,7 +317,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun MutableStateFlow<PlayerUiState>.getCurrentEpisodeCachedPlaybackPosition(): Long {
-        return value.book?.currentEpisode?.playbackCache?.lastTime ?: 0
+        return value.book?.recentEpisode?.playbackCache?.lastTime ?: 0
     }
 
     private fun MutableStateFlow<PlayerUiState>.getEpisodeCachedPlaybackPositionByIndex(index: Int): Long {
@@ -323,7 +332,7 @@ class PlayerViewModel @Inject constructor(
         return value.book?.episodes?.find { it.id == id }
     }
 
-    inner class ControllerListener: Player.Listener {
+    inner class ControllerListener : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
             val expectedEvents = listOf(
                 EVENT_IS_PLAYING_CHANGED, // playing/paused
@@ -335,7 +344,7 @@ class PlayerViewModel @Inject constructor(
                 viewModelScope.launch {
                     cacheEpisodePlaybackPosition(
                         episodeId = player.currentMediaItem?.mediaId,
-                        durationTime = player.duration,
+                        duration = player.duration,
                         currentTime = player.currentPosition
                     )
                 }
@@ -349,13 +358,11 @@ class PlayerViewModel @Inject constructor(
 
                 if (prevEpisode != null) {
                     viewModelScope.launch {
-                        prevEpisode.retrieveDurationTimeFromMetadata()?.let { durationTime ->
-                            cacheEpisodePlaybackPosition(
-                                episodeId = prevEpisode.id,
-                                durationTime = durationTime,
-                                currentTime = durationTime
-                            )
-                        }
+                        cacheEpisodePlaybackPosition(
+                            episodeId = prevEpisode.id,
+                            duration = prevEpisode.duration,
+                            currentTime = prevEpisode.duration
+                        )
                     }
                 }
             }
@@ -364,7 +371,7 @@ class PlayerViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         book = it.book?.copy(
-                            currentEpisode = newEpisode,
+                            recentEpisode = newEpisode
                         )
                     )
                 }
@@ -373,7 +380,7 @@ class PlayerViewModel @Inject constructor(
 
         override fun onIsLoadingChanged(isLoading: Boolean) {
             _uiState.update {
-                it.copy(isLoading = isLoading)
+                it.copy(isBuffering = isLoading)
             }
         }
 

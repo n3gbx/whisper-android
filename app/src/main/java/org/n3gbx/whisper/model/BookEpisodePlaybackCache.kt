@@ -1,21 +1,22 @@
 package org.n3gbx.whisper.model
 
 import java.time.LocalDateTime
+import kotlin.math.roundToInt
 
 data class BookEpisodePlaybackCache(
-    val durationTime: Long,
+    val duration: Long,
     val lastTime: Long,
     val lastUpdatedAt: LocalDateTime
 ) {
     val isFinished: Boolean
-        get() = progressPercentage == 100.0f
+        get() = progressPercentage == 100
 
-    val progressPercentage: Float
+    val progressPercentage: Int
         get() {
-            return if (durationTime > 0) {
-                (lastTime.toFloat() / durationTime.toFloat()) * 100.toFloat()
+            return if (duration > 0) {
+                ((lastTime.toFloat() / duration.toFloat()) * 100).roundToInt()
             } else {
-                0f
+                0
             }
         }
 }

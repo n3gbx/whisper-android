@@ -117,7 +117,7 @@ dependencies {
 
     implementation(libs.kotlinx.serialization.json)
 
-    implementation("org.jsoup:jsoup:1.14.3")
+    implementation(libs.shimmer.compose)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
