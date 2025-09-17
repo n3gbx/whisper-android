@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.utils
+package org.n3gbx.whisper.platform
 
 import android.content.BroadcastReceiver
 import android.content.Context

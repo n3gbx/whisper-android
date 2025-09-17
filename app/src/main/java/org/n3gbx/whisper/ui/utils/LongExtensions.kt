@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.ui.common.utils
+package org.n3gbx.whisper.ui.utils
 
 import androidx.media3.common.C
 import org.n3gbx.whisper.Constants.UNSET_TIME_PLACEHOLDER

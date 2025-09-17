@@ -1,6 +1,5 @@
 package org.n3gbx.whisper.feature.catalog
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -15,17 +14,20 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
@@ -55,7 +57,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.valentinilk.shimmer.shimmer
 import org.n3gbx.whisper.model.Book
@@ -64,7 +65,7 @@ import org.n3gbx.whisper.ui.common.components.BookListItem
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
 import org.n3gbx.whisper.ui.common.components.SearchToolbar
 import org.n3gbx.whisper.ui.common.components.TotalDuration
-
+import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,7 +124,6 @@ private fun CatalogContent(
                 onSearchQueryClear = onSearchQueryClear,
             )
         },
-        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
     ) { padding ->
         Box(
             modifier = Modifier
@@ -162,7 +162,10 @@ private fun Catalog(
     onLayoutToggle: () -> Unit,
 ) {
     Column(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            .imePadding()
+            .bottomNavBarPadding(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         CatalogHeader(
@@ -387,7 +390,7 @@ private fun CatalogLoading(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        repeat(5) {
+        repeat(8) {
             Row(
                 modifier = Modifier
                     .shimmer()

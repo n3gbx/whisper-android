@@ -33,7 +33,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
-import org.n3gbx.whisper.MainPlaybackService
+import org.n3gbx.whisper.platform.PlayerPlaybackService
 import org.n3gbx.whisper.data.BookRepository
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.BACKWARD
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.FORWARD
@@ -70,6 +70,18 @@ class PlayerViewModel @Inject constructor(
     fun setBook(bookId: Identifier?) {
         if (::controller.isInitialized && bookId != null && currentBookId != bookId) {
             observeBook(bookId)
+        }
+    }
+
+    fun onDescriptionButtonClick() {
+        _uiState.update {
+            it.copy(shouldShowDescription = true)
+        }
+    }
+
+    fun onDescriptionDismiss() {
+        _uiState.update {
+            it.copy(shouldShowDescription = false)
         }
     }
 
@@ -279,7 +291,7 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun initController() {
-        val sessionToken = SessionToken(context, ComponentName(context, MainPlaybackService::class.java))
+        val sessionToken = SessionToken(context, ComponentName(context, PlayerPlaybackService::class.java))
         val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
 
         controllerFuture.addListener(

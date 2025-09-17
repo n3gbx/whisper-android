@@ -33,10 +33,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -55,9 +58,10 @@ import coil.compose.AsyncImage
 import org.n3gbx.whisper.model.BookEpisode
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
-import org.n3gbx.whisper.ui.common.utils.convertToTime
+import org.n3gbx.whisper.ui.utils.convertToTime
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
@@ -86,6 +90,7 @@ fun PlayerScreen(
 
     PlayerContent(
         uiState = uiState,
+        onDescriptionDismiss = viewModel::onDescriptionDismiss,
         onPlayPauseClick = viewModel::onPlayPauseButtonClick,
         onRewindBackwardClick = viewModel::onRewindBackwardButtonClick,
         onRewindForwardClick = viewModel::onRewindForwardButtonClick,
@@ -93,20 +98,23 @@ fun PlayerScreen(
         onSliderValueChangeFinished = viewModel::onSliderValueChangeFinished,
         onBookmarkButtonClick = viewModel::onBookmarkButtonClick,
         onEpisodeClick = viewModel::onEpisodeClick,
+        onDescriptionButtonClick = viewModel::onDescriptionButtonClick,
         onBackButtonClick = navigateBack
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerContent(
     modifier: Modifier = Modifier,
     uiState: PlayerUiState,
+    onDescriptionDismiss: () -> Unit = {},
     onPlayPauseClick: () -> Unit = {},
     onRewindBackwardClick: () -> Unit = {},
     onRewindForwardClick: () -> Unit = {},
     onSliderValueChange: (Float) -> Unit = {},
     onSliderValueChangeFinished: (Float) -> Unit = {},
-    onMoreButtonClick: () -> Unit = {},
+    onDescriptionButtonClick: () -> Unit = {},
     onBookmarkButtonClick: () -> Unit = {},
     onEpisodeClick: (Int) -> Unit = {},
     onBackButtonClick: () -> Unit
@@ -116,10 +124,11 @@ private fun PlayerContent(
         topBar = {
             Toolbar(
                 title = uiState.book?.recentEpisode?.title,
+                shouldDisableActions = uiState.shouldDisableActions,
                 isBookmarked = uiState.book?.isBookmarked,
                 onBackButtonClick = onBackButtonClick,
                 onBookmarkButtonClick = onBookmarkButtonClick,
-                onMoreButtonClick = onMoreButtonClick
+                onDescriptionButtonClick = onDescriptionButtonClick
             )
         },
     ) { padding ->
@@ -172,10 +181,11 @@ private fun PlayerContent(
 private fun Toolbar(
     modifier: Modifier = Modifier,
     title: String?,
+    shouldDisableActions: Boolean,
     isBookmarked: Boolean?,
     onBackButtonClick: () -> Unit,
     onBookmarkButtonClick: () -> Unit,
-    onMoreButtonClick: () -> Unit
+    onDescriptionButtonClick: () -> Unit
 ) {
     TopAppBar(
         modifier = modifier,
@@ -199,7 +209,8 @@ private fun Toolbar(
         },
         actions = {
             IconButton(
-                onClick = onMoreButtonClick
+                enabled = !shouldDisableActions,
+                onClick = onDescriptionButtonClick
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Notes,
@@ -207,6 +218,7 @@ private fun Toolbar(
                 )
             }
             IconButton(
+                enabled = !shouldDisableActions,
                 onClick = onBookmarkButtonClick
             ) {
                 BookmarkIcon(
@@ -488,6 +500,7 @@ private fun Controls(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 private fun PlayerContentPreview() {

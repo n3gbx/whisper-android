@@ -36,6 +36,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.json.Json
+import org.n3gbx.whisper.feature.miniplayer.MiniPlayer
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 import org.n3gbx.whisper.feature.player.PlayerViewModel
 import org.n3gbx.whisper.ui.common.components.VerticalSlideTransitionWrapper
@@ -115,7 +116,7 @@ class MainActivity : ComponentActivity() {
                     navController = navController,
                 )
 
-                MainMiniPlayer(
+                MiniPlayer(
                     playerViewModel = playerViewModel,
                     shouldHide = isCurrentDestinationPlayer,
                     additionalBottomOffsetDp = miniPlayerBottomOffsetDp,

@@ -15,7 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import org.n3gbx.whisper.ui.common.utils.convertToTime
+import org.n3gbx.whisper.ui.utils.convertToTime
 
 @Composable
 fun TotalDuration(

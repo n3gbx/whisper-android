@@ -1,4 +1,4 @@
-package org.n3gbx.whisper
+package org.n3gbx.whisper.platform
 
 import android.content.Intent
 import androidx.annotation.OptIn
@@ -7,7 +7,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
-class MainPlaybackService : MediaSessionService() {
+class PlayerPlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
 
     // Create your Player and MediaSession in the onCreate lifecycle event

@@ -4,6 +4,7 @@
     <style name="Theme.Whisper" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowTranslucentNavigation">false</item>
         <item name="android:windowBackground">#000000</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <style name="Theme.Whisper.Splash" parent="Theme.SplashScreen">

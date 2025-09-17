@@ -1,4 +1,4 @@
-package org.n3gbx.whisper
+package org.n3gbx.whisper.feature.miniplayer
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.basicMarquee
@@ -48,7 +48,7 @@ import org.n3gbx.whisper.feature.player.PlayerViewModel
 import org.n3gbx.whisper.ui.common.components.VerticalSlideTransitionWrapper
 
 @Composable
-fun MainMiniPlayer(
+fun MiniPlayer(
     modifier: Modifier = Modifier,
     playerViewModel: PlayerViewModel,
     shouldHide: Boolean,

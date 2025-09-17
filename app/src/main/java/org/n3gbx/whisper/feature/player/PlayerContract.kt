@@ -12,6 +12,7 @@ data class PlayerUiState(
     val duration: Long = 0,
     val currentTime: Long = 0,
     val sliderValue: Float = 0f,
+    val shouldShowDescription: Boolean = false,
 ) {
     val remainingTime: Long?
         get() = if (duration > 0) duration - currentTime else null
@@ -24,6 +25,9 @@ data class PlayerUiState(
 
     val shouldDisableControls: Boolean
         get() = isBuffering || isLoading
+
+    val shouldDisableActions: Boolean
+        get() = isLoading
 }
 
 sealed interface PlayerUiEvent {
