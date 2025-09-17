@@ -31,9 +31,5 @@ object DatabaseModule {
 
     @Singleton
     @Provides
-    fun provideBookmarkDao(mainDatabase: MainDatabase) = mainDatabase.bookmarkDao()
-
-    @Singleton
-    @Provides
-    fun provideBookEpisodePlaybackCacheDao(mainDatabase: MainDatabase) = mainDatabase.bookEpisodePlaybackCache()
+    fun provideBookDao(mainDatabase: MainDatabase) = mainDatabase.bookDao()
 }

@@ -96,7 +96,7 @@ fun MainMiniPlayer(
                         )
                         Heading(
                             title = uiState.book?.title.toString(),
-                            subtitle = uiState.book?.recentEpisode?.id.toString(),
+                            subtitle = uiState.book?.recentEpisode?.title.toString(),
                         )
                         Controls(
                             isPlaying = uiState.isPlaying,

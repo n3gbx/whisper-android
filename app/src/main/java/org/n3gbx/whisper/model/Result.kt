@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.utils
+package org.n3gbx.whisper.model
 
 sealed interface Result<T> {
     class Success<T>(val data: T) : Result<T>

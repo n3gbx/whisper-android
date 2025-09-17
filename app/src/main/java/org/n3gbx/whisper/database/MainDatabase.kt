@@ -5,15 +5,16 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import org.n3gbx.whisper.database.converter.LocalDateConverter
 import org.n3gbx.whisper.database.converter.LocalDateTimeConverter
-import org.n3gbx.whisper.database.dao.BookmarkDao
-import org.n3gbx.whisper.database.dao.BookEpisodePlaybackCacheDao
-import org.n3gbx.whisper.database.entity.BookmarkEntity
-import org.n3gbx.whisper.database.entity.BookEpisodePlaybackCacheEntity
+import org.n3gbx.whisper.database.dao.BookDao
+import org.n3gbx.whisper.database.entity.BookEntity
+import org.n3gbx.whisper.database.entity.BookEpisodeEntity
+import org.n3gbx.whisper.database.entity.BookEpisodeProgressEntity
 
 @Database(
     entities = [
-        BookmarkEntity::class,
-        BookEpisodePlaybackCacheEntity::class
+        BookEpisodeProgressEntity::class,
+        BookEntity::class,
+        BookEpisodeEntity::class,
     ],
     version = 1
 )
@@ -23,6 +24,5 @@ import org.n3gbx.whisper.database.entity.BookEpisodePlaybackCacheEntity
 )
 abstract class MainDatabase : RoomDatabase() {
 
-    abstract fun bookmarkDao() : BookmarkDao
-    abstract fun bookEpisodePlaybackCache() : BookEpisodePlaybackCacheDao
+    abstract fun bookDao() : BookDao
 }

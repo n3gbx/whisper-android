@@ -2,18 +2,14 @@ package org.n3gbx.whisper.feature.library
 
 import androidx.compose.runtime.Immutable
 import org.n3gbx.whisper.model.Book
+import org.n3gbx.whisper.model.BooksType
 
 @Immutable
 data class LibraryUiState(
+    val isLoading: Boolean = true,
     val books: List<Book> = emptyList(),
-    val libraryTabs: List<LibraryTab> = LibraryTab.entries,
-    val selectedLibraryTabIndex: Int = 0,
+    val booksTypes: List<BooksType> = BooksType.entries,
+    val selectedBooksTypeIndex: Int = 0,
 ) {
-    val selectedLibraryTab = libraryTabs[selectedLibraryTabIndex]
-}
-
-enum class LibraryTab {
-    STARTED,
-    FINISHED,
-    SAVED;
+    val selectedBooksType = booksTypes[selectedBooksTypeIndex]
 }

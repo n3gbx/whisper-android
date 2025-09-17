@@ -1,11 +1,27 @@
 package org.n3gbx.whisper.model
 
-import org.n3gbx.whisper.Constants.UNSET_TIME
+import kotlin.math.roundToInt
 
 data class BookEpisode(
-    val id: String,
-    val bookId: String,
+    val id: Identifier,
+    val bookId: Identifier,
+    val title: String,
     val url: String,
-    val duration: Long = UNSET_TIME,
-    val playbackCache: BookEpisodePlaybackCache?
-)
+    val duration: Long,
+    val progress: BookEpisodeProgress
+) {
+    val isFinished: Boolean
+        get() = progressPercentage == 100
+
+    val progressValue: Float
+        get() {
+            return if (duration > 0) {
+                progress.lastTime.toFloat() / duration.toFloat()
+            } else {
+                0f
+            }
+        }
+
+    val progressPercentage: Int
+        get() = (progressValue * 100).roundToInt()
+}

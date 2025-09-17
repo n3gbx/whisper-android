@@ -29,28 +29,27 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import org.n3gbx.whisper.MainPlaybackService
 import org.n3gbx.whisper.data.BookRepository
-import org.n3gbx.whisper.data.BookmarkRepository
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.BACKWARD
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.FORWARD
 import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.BookEpisode
+import org.n3gbx.whisper.model.Identifier
+import org.n3gbx.whisper.model.Result
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val bookRepository: BookRepository,
-    private val bookmarkRepository: BookmarkRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
-    private var currentBookId: String? = null
+    private var currentBookId: Identifier? = null
     private var bookJob: Job? = null
     private val rewindTimeMs = 10000L
     private val rewindActions = MutableSharedFlow<RewindAction>()
@@ -68,7 +67,7 @@ class PlayerViewModel @Inject constructor(
         initController()
     }
 
-    fun setBook(bookId: String?) {
+    fun setBook(bookId: Identifier?) {
         if (::controller.isInitialized && bookId != null && currentBookId != bookId) {
             observeBook(bookId)
         }
@@ -120,7 +119,7 @@ class PlayerViewModel @Inject constructor(
 
     fun onEpisodeClick(index: Int) {
         if (_uiState.value.book?.recentEpisodeIndex != index) {
-            if (_uiState.getEpisodeByIndex(index)?.playbackCache?.isFinished == true) {
+            if (_uiState.getEpisodeByIndex(index)?.isFinished == true) {
                 controller.seekTo(index, 0)
             } else {
                 val time = _uiState.getEpisodeCachedPlaybackPositionByIndex(index)
@@ -132,22 +131,20 @@ class PlayerViewModel @Inject constructor(
     fun onBookmarkButtonClick() {
         currentBookId?.let { bookId ->
             viewModelScope.launch {
-                bookmarkRepository.changeBookmark(bookId)
+                bookRepository.updateBookBookmark(bookId)
             }
         }
     }
 
-    private suspend fun cacheEpisodePlaybackPosition(
-        episodeId: String?,
-        duration: Long,
+    private suspend fun saveEpisodePlaybackProgress(
+        externalEpisodeId: String?,
         currentTime: Long
     ) {
         currentBookId?.let { bookId ->
-            if (duration != C.TIME_UNSET && episodeId != null) {
-                bookRepository.saveBookEpisodePlayback(
-                    bookId = bookId,
-                    episodeId = episodeId,
-                    duration = duration,
+            if (currentTime != C.TIME_UNSET && externalEpisodeId != null) {
+                bookRepository.updateBookEpisodeProgress(
+                    externalBookId = bookId.externalId,
+                    externalEpisodeId = externalEpisodeId,
                     currentTime = currentTime
                 )
             }
@@ -160,11 +157,11 @@ class PlayerViewModel @Inject constructor(
                 delay(30_000)
 
                 val episodeId = controller.currentMediaItem?.mediaId
-                val duration = controller.duration
+                // val duration = controller.duration
                 val currentTime = controller.currentPosition
 
                 episodeId?.let {
-                    cacheEpisodePlaybackPosition(episodeId, duration, currentTime)
+                    saveEpisodePlaybackProgress(episodeId, currentTime)
                 }
             }
         }
@@ -210,42 +207,49 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun observeBook(bookId: String) {
+    private fun observeBook(bookId: Identifier) {
         bookJob?.cancel()
 
         bookJob = viewModelScope.launch {
-            bookRepository.getBook(bookId)
-                .onStart {
-                    _uiState.update {
-                        it.copy(isLoading = true)
-                    }
-                }.collect { book ->
-                    if (book == null) {
-                        navigateBackWithMessage("Not a valid book identifier")
-                    } else {
-                        if (controller.currentMediaItem == null || currentBookId != bookId) {
-                            val mediaItems = book.episodesAsMediaItems()
-                            val currentIndex = book.recentEpisodeIndex
-                            val currentTime = book.recentEpisode.playbackCache?.lastTime ?: 0
-
-                            controller.stop()
-                            controller.clearMediaItems()
-                            controller.setMediaItems(mediaItems, currentIndex, currentTime)
-                            controller.prepare()
-
-                            _uiState.updateSliderValueAndCurrentTime(currentTime.toFloat())
-                        }
-
+            bookRepository.getBook(bookId).collect { result ->
+                when (result) {
+                    is Result.Loading -> {
                         _uiState.update {
-                            it.copy(
-                                book = book,
-                                isLoading = false
-                            )
+                            it.copy(isLoading = true)
                         }
-
-                        currentBookId = bookId
                     }
+                    is Result.Success -> {
+                        val book = result.data
+
+                        if (book == null) {
+                            navigateBackWithMessage("Not a valid book identifier")
+                        } else {
+                            if (controller.currentMediaItem == null || currentBookId != bookId) {
+                                val mediaItems = book.episodesAsMediaItems()
+                                val currentIndex = book.recentEpisodeIndex
+                                val currentTime = book.recentEpisode.progress.lastTime
+
+                                controller.stop()
+                                controller.clearMediaItems()
+                                controller.setMediaItems(mediaItems, currentIndex, currentTime)
+                                controller.prepare()
+
+                                _uiState.updateSliderValueAndCurrentTime(currentTime.toFloat())
+                            }
+
+                            _uiState.update {
+                                it.copy(
+                                    book = book,
+                                    isLoading = false
+                                )
+                            }
+
+                            currentBookId = bookId
+                        }
+                    }
+                    else -> {}
                 }
+            }
         }
     }
 
@@ -259,7 +263,7 @@ class PlayerViewModel @Inject constructor(
     private fun Book.episodesAsMediaItems(): List<MediaItem> {
         return episodes.map { episode ->
             MediaItem.Builder()
-                .setMediaId(episode.id)
+                .setMediaId(episode.title)
                 .setUri(episode.url)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
@@ -317,19 +321,19 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun MutableStateFlow<PlayerUiState>.getCurrentEpisodeCachedPlaybackPosition(): Long {
-        return value.book?.recentEpisode?.playbackCache?.lastTime ?: 0
+        return value.book?.recentEpisode?.progress?.lastTime ?: 0
     }
 
     private fun MutableStateFlow<PlayerUiState>.getEpisodeCachedPlaybackPositionByIndex(index: Int): Long {
-        return value.book?.episodes?.getOrNull(index)?.playbackCache?.lastTime ?: 0
+        return value.book?.episodes?.getOrNull(index)?.progress?.lastTime ?: 0
     }
 
     private fun MutableStateFlow<PlayerUiState>.getEpisodeByIndex(index: Int): BookEpisode? {
         return value.book?.episodes?.getOrNull(index)
     }
 
-    private fun MutableStateFlow<PlayerUiState>.getEpisodeById(id: String?): BookEpisode? {
-        return value.book?.episodes?.find { it.id == id }
+    private fun MutableStateFlow<PlayerUiState>.getEpisodeByExternalId(id: String?): BookEpisode? {
+        return value.book?.episodes?.find { it.id.externalId == id }
     }
 
     inner class ControllerListener : Player.Listener {
@@ -342,9 +346,8 @@ class PlayerViewModel @Inject constructor(
 
             if (events.containsAny(*expectedEvents.toIntArray())) {
                 viewModelScope.launch {
-                    cacheEpisodePlaybackPosition(
-                        episodeId = player.currentMediaItem?.mediaId,
-                        duration = player.duration,
+                    saveEpisodePlaybackProgress(
+                        externalEpisodeId = player.currentMediaItem?.mediaId,
                         currentTime = player.currentPosition
                     )
                 }
@@ -358,16 +361,15 @@ class PlayerViewModel @Inject constructor(
 
                 if (prevEpisode != null) {
                     viewModelScope.launch {
-                        cacheEpisodePlaybackPosition(
-                            episodeId = prevEpisode.id,
-                            duration = prevEpisode.duration,
+                        saveEpisodePlaybackProgress(
+                            externalEpisodeId = prevEpisode.id.externalId,
                             currentTime = prevEpisode.duration
                         )
                     }
                 }
             }
 
-            _uiState.getEpisodeById(mediaItem?.mediaId)?.let { newEpisode ->
+            _uiState.getEpisodeByExternalId(mediaItem?.mediaId)?.let { newEpisode ->
                 _uiState.update {
                     it.copy(
                         book = it.book?.copy(

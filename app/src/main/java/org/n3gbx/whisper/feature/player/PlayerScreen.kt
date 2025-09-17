@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,15 +53,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import org.n3gbx.whisper.model.BookEpisode
+import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
-import org.n3gbx.whisper.ui.common.components.Loading
 import org.n3gbx.whisper.ui.common.utils.convertToTime
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
-    bookId: String?,
+    bookId: Identifier?,
     navigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -114,7 +115,7 @@ private fun PlayerContent(
         modifier = modifier.fillMaxSize(),
         topBar = {
             Toolbar(
-                title = uiState.book?.recentEpisode?.id,
+                title = uiState.book?.recentEpisode?.title,
                 isBookmarked = uiState.book?.isBookmarked,
                 onBackButtonClick = onBackButtonClick,
                 onBookmarkButtonClick = onBookmarkButtonClick,
@@ -259,36 +260,45 @@ private fun Episodes(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 episodes.forEachIndexed { index, episode ->
-                    val color =
-                        if (index == recentEpisodeIndex) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurface
+                    key(episode.id.externalId) {
+                        val color =
+                            if (index == recentEpisodeIndex) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurface
 
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp)
-                            .clickable { onEpisodeClick(index) },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text(
-                            text = "${index + 1}.",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = color
-                        )
-                        Text(
-                            modifier = Modifier.weight(1f),
-                            text = "${episode.id} (${episode.playbackCache?.progressPercentage ?: 0}%)",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = color,
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = episode.duration.convertToTime(),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.outlineVariant
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .clickable { onEpisodeClick(index) },
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = "${index + 1}.",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = color
+                            )
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = episode.title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = color,
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1,
+                                )
+                                Text(
+                                    text = episode.duration.convertToTime(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.outlineVariant
+                                )
+                            }
+                            Text(
+                                text = "${episode.progressPercentage}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
             }
@@ -302,6 +312,7 @@ private fun HeadingLoading(
 ) {
     Column(
         modifier = modifier.padding(top = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             modifier = Modifier

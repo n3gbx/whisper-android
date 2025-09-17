@@ -1,6 +1,7 @@
 package org.n3gbx.whisper.ui.navigation
 
 import kotlinx.serialization.Serializable
+import org.n3gbx.whisper.model.Identifier
 
 sealed interface Tab
 sealed interface Root
@@ -27,4 +28,4 @@ data object Library
 data object Settings
 
 @Serializable
-data class Player(val bookId: String? = null)
+data class Player(val bookId: Identifier? = null)

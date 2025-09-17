@@ -1,5 +1,6 @@
 package org.n3gbx.whisper.ui.navigation
 
+import android.os.Bundle
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -12,15 +13,21 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.navigation
 import androidx.navigation.toRoute
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.n3gbx.whisper.feature.catalog.CatalogScreen
 import org.n3gbx.whisper.feature.player.PlayerScreen
 import org.n3gbx.whisper.feature.player.PlayerViewModel
 import org.n3gbx.whisper.feature.settings.SettingsScreen
 import org.n3gbx.whisper.feature.library.LibraryScreen
+import org.n3gbx.whisper.model.Identifier
+import kotlin.reflect.typeOf
 
 @ExperimentalFoundationApi
 @Composable
@@ -97,6 +104,9 @@ fun NavGraphBuilder.playerGraph(
         startDestination = Player()
     ) {
         composable<Player>(
+            typeMap = mapOf(
+                typeOf<Identifier?>() to IdentifierNavType
+            ),
             enterTransition = {
                 slideInVertically(
                     initialOffsetY = { it },
@@ -135,6 +145,7 @@ fun NavGraphBuilder.playerGraph(
             }
         ) { backStackEntry ->
             val bookId = backStackEntry.toRoute<Player>().bookId
+
             PlayerScreen(
                 viewModel = viewModel,
                 bookId = bookId,
@@ -143,5 +154,23 @@ fun NavGraphBuilder.playerGraph(
                 }
             )
         }
+    }
+}
+
+object IdentifierNavType : NavType<Identifier?>(isNullableAllowed = true) {
+    override fun get(bundle: Bundle, key: String): Identifier? {
+        return bundle.getString(key)?.let { parseValue(it) }
+    }
+
+    override fun put(bundle: Bundle, key: String, value: Identifier?) {
+        bundle.putString(key, serializeAsValue(value))
+    }
+
+    override fun parseValue(value: String): Identifier {
+        return Json.decodeFromString(value)
+    }
+
+    override fun serializeAsValue(value: Identifier?): String {
+        return Json.encodeToString(value)
     }
 }

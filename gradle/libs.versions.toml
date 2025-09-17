@@ -11,11 +11,8 @@ espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.9.1"
 activityCompose = "1.10.1"
 navigationCompose = "2.9.1"
-composeBom = "2024.04.01"
-googleMlkitTextRecognition = "16.0.1"
-googleMlkitBarcodeScanning = "17.3.0"
+composeBom = "2024.08.00"
 accompanistPermissions = "0.37.3"
-androidxCamera = "1.4.2"
 room = "2.6.1"
 coil = "2.7.0"
 materialIcons = "1.6.8"
@@ -46,13 +43,7 @@ androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-man
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-material-icons = { group = "androidx.compose.material", name = "material-icons-extended-android", version.ref = "materialIcons" }
-google-mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "googleMlkitTextRecognition" }
-google-mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "googleMlkitBarcodeScanning" }
 google-accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
-androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "androidxCamera" }
-androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "androidxCamera" }
-androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "androidxCamera" }
-androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "androidxCamera" }
 
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }

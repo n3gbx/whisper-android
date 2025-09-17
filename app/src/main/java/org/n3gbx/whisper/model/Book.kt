@@ -1,9 +1,10 @@
 package org.n3gbx.whisper.model
 
 import org.n3gbx.whisper.Constants.UNSET_TIME
+import kotlin.math.roundToInt
 
 data class Book(
-    val id: String,
+    val id: Identifier,
     val title: String,
     val author: String,
     val narrator: String?,
@@ -13,15 +14,20 @@ data class Book(
     val recentEpisode: BookEpisode,
     val episodes: List<BookEpisode>
 ) {
+    val isFinished: Boolean
+        get() = episodes.all { it.isFinished }
+
+    val isStarted: Boolean
+        get() = progressValue > 0f && !isFinished
 
     val recentEpisodeIndex: Int
         get() = episodes.indexOf(recentEpisode)
 
     val progressPercentage: Int
-        get() = episodes.sumOf { it.playbackCache?.progressPercentage ?: 0 }
+        get() = (progressValue * 100).roundToInt()
 
     val progressValue: Float
-        get() = progressPercentage.toFloat() / 100
+        get() = episodes.fold(0f) { acc, e -> acc + e.progressValue } / episodes.size.toFloat()
 
     val totalDuration: Long
         get() = episodes.filter { it.duration != UNSET_TIME }.sumOf { it.duration }

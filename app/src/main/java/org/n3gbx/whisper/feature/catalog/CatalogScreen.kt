@@ -1,5 +1,6 @@
 package org.n3gbx.whisper.feature.catalog
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,12 +9,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -25,11 +30,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.PullToRefreshState
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,22 +59,35 @@ import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.valentinilk.shimmer.shimmer
 import org.n3gbx.whisper.model.Book
+import org.n3gbx.whisper.model.Identifier
+import org.n3gbx.whisper.ui.common.components.BookListItem
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
 import org.n3gbx.whisper.ui.common.components.SearchToolbar
 import org.n3gbx.whisper.ui.common.components.TotalDuration
 
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CatalogScreen(
     viewModel: CatalogViewModel,
-    navigateToPlayer: (bookId: String) -> Unit
+    navigateToPlayer: (bookId: Identifier) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isGridLayout by rememberSaveable { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
 
     val toggleLayout: () -> Unit = { isGridLayout = !isGridLayout }
 
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing && !uiState.isLoading) {
+            pullToRefreshState.endRefresh()
+            viewModel.onRefresh()
+        }
+    }
+
     CatalogContent(
         uiState = uiState,
+        pullToRefreshState = pullToRefreshState,
         isGridLayout = isGridLayout,
         onSearchQueryChange = viewModel::onSearchQuery,
         onSearchToggle = viewModel::onSearchToggle,
@@ -74,16 +98,18 @@ fun CatalogScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CatalogContent(
     modifier: Modifier = Modifier,
     uiState: CatalogUiState,
+    pullToRefreshState: PullToRefreshState,
     isGridLayout: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onSearchToggle: () -> Unit,
     onSearchQueryClear: () -> Unit,
-    onClick: (bookId: String) -> Unit,
-    onBookmarkButtonClick: (bookId: String) -> Unit,
+    onClick: (bookId: Identifier) -> Unit,
+    onBookmarkButtonClick: (bookId: Identifier) -> Unit,
     onLayoutToggle: () -> Unit,
 ) {
     Scaffold(
@@ -96,12 +122,14 @@ private fun CatalogContent(
                 onSearchToggle = onSearchToggle,
                 onSearchQueryClear = onSearchQueryClear,
             )
-        }
+        },
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
     ) { padding ->
         Box(
             modifier = Modifier
                 .padding(padding)
                 .padding(horizontal = 16.dp)
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
             if (uiState.isLoading) {
                 CatalogLoading()
@@ -111,23 +139,30 @@ private fun CatalogContent(
                     isGridLayout = isGridLayout,
                     onBookmarkButtonClick = onBookmarkButtonClick,
                     onClick = onClick,
-                    onLayoutToggle = onLayoutToggle
+                    onLayoutToggle = onLayoutToggle,
                 )
             }
+            PullToRefreshContainer(
+                modifier = Modifier.align(Alignment.TopCenter),
+                state = pullToRefreshState,
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
 
 @Composable
 private fun Catalog(
+    modifier: Modifier = Modifier,
     uiState: CatalogUiState,
     isGridLayout: Boolean,
-    onBookmarkButtonClick: (bookId: String) -> Unit,
-    onClick: (bookId: String) -> Unit,
+    onBookmarkButtonClick: (bookId: Identifier) -> Unit,
+    onClick: (bookId: Identifier) -> Unit,
     onLayoutToggle: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         CatalogHeader(
@@ -190,8 +225,8 @@ private fun CatalogHeader(
 private fun BooksGrid(
     modifier: Modifier = Modifier,
     books: List<Book>,
-    onBookmarkButtonClick: (String) -> Unit,
-    onClick: (String) -> Unit
+    onBookmarkButtonClick: (Identifier) -> Unit,
+    onClick: (Identifier) -> Unit
 ) {
     LazyVerticalGrid(
         modifier = modifier.fillMaxSize(),
@@ -201,9 +236,10 @@ private fun BooksGrid(
     ) {
         items(
             items = books,
-            key = { it.id }
+            key = { it.id.localId }
         ) { book ->
             BookGridItem(
+                modifier = Modifier.animateItem(),
                 book = book,
                 onBookmarkButtonClick = { onBookmarkButtonClick(book.id) },
                 onClick = { onClick(book.id) },
@@ -217,8 +253,8 @@ private fun BooksGrid(
 private fun BooksList(
     modifier: Modifier = Modifier,
     books: List<Book>,
-    onBookmarkButtonClick: (String) -> Unit,
-    onClick: (String) -> Unit
+    onBookmarkButtonClick: (Identifier) -> Unit,
+    onClick: (Identifier) -> Unit
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -226,99 +262,14 @@ private fun BooksList(
     ) {
         items(
             items = books,
-            key = { it.id }
+            key = { it.id.localId }
         ) { book ->
             BookListItem(
+                modifier = Modifier.animateItem(),
                 book = book,
+                showProgress = false,
                 onBookmarkButtonClick = { onBookmarkButtonClick(book.id) },
                 onClick = { onClick(book.id) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun BookListItem(
-    modifier: Modifier = Modifier,
-    book: Book,
-    onBookmarkButtonClick: () -> Unit,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .aspectRatio(1f)
-        ) {
-            AsyncImage(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(MaterialTheme.colorScheme.outlineVariant),
-                model = book.coverUrl,
-                contentDescription = book.title,
-                contentScale = ContentScale.Crop,
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            bottomStart = 6.dp,
-                            bottomEnd = 6.dp
-                        )
-                    )
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.8f)
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                TotalDuration(
-                    modifier = Modifier.padding(bottom = 4.dp),
-                    color = Color.White,
-                    totalDuration = book.totalDuration
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = book.title,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = book.author,
-                    overflow = TextOverflow.Ellipsis,
-                    maxLines = 1,
-                    color = MaterialTheme.colorScheme.outlineVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            BookmarkIcon(
-                modifier = Modifier.clickable(onClick = onBookmarkButtonClick),
-                isBookmarked = book.isBookmarked
             )
         }
     }
@@ -412,8 +363,8 @@ private fun CatalogLoading(
     modifier: Modifier = Modifier)
 {
     Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = modifier.background(MaterialTheme.colorScheme.background),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
