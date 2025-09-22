@@ -2,7 +2,6 @@ package org.n3gbx.whisper.ui.common.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
@@ -15,7 +14,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -85,7 +83,7 @@ fun SearchToolbar(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = "Title, author or description",
+                                    text = "Book title or author",
                                     color = MaterialTheme.colorScheme.outline,
                                     style = MaterialTheme.typography.bodyLarge
                                 )

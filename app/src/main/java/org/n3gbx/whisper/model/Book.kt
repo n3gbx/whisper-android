@@ -38,6 +38,5 @@ data class Book(
         val text = query.lowercase()
         return title.lowercase().contains(text)
                 || author.lowercase().contains(text)
-                || description?.lowercase().orEmpty().contains(text)
     }
 }
