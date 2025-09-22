@@ -7,6 +7,7 @@ Audiobooks Android application <br/>
 - Media3
 - Coroutines
 - Kotlin
+- Firestore
 - Room
 - Hilt
 - MVI
@@ -16,6 +17,7 @@ Audiobooks Android application <br/>
 - MyLibrary (started, finished, saved, downloaded (soon))
 - Player (pause/play, episodes list, skip forward/backward, playback skip, progress cache, sleep timer (soon), playback speed (soon))
 - Settings (soon)
+- Catalog caching
 
 ## Preview
 <p style="margin : 0" align="center">
