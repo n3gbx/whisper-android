@@ -5,21 +5,16 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.n3gbx.whisper.data.BookRepository
+import org.n3gbx.whisper.model.BooksSortType
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
 import javax.inject.Inject
@@ -74,6 +69,15 @@ class CatalogViewModel @Inject constructor(
         }
     }
 
+    fun onSortOptionChange(option: SortOption?) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(selectedSortOption = option)
+            }
+            getBooksTriggerEvents.emit(GetBooksTrigger.Sort(option?.value))
+        }
+    }
+
     private fun observeSearchQuery() {
         getBooksTriggerEvents
             .onStart { emit(GetBooksTrigger.Search(_uiState.value.searchQuery)) }
@@ -81,8 +85,13 @@ class CatalogViewModel @Inject constructor(
             .flatMapLatest { event ->
                 val shouldRefresh = (event as? GetBooksTrigger.Refresh) != null
                 val query = (event as? GetBooksTrigger.Search)?.query
+                val sortType = (event as? GetBooksTrigger.Sort)?.sortType
 
-                bookRepository.getBooks(query, shouldRefresh)
+                bookRepository.getBooks(
+                    query = query,
+                    shouldRefresh = shouldRefresh,
+                    booksSortType = sortType
+                )
             }
             .onEach { result ->
                 when (result) {
@@ -107,6 +116,7 @@ class CatalogViewModel @Inject constructor(
 
     private sealed interface GetBooksTrigger {
         data object Refresh: GetBooksTrigger
+        data class Sort(val sortType: BooksSortType?): GetBooksTrigger
         data class Search(val query: String?): GetBooksTrigger
     }
 }

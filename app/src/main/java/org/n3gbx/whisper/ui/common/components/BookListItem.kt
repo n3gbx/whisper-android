@@ -106,7 +106,7 @@ fun BookListItem(
                     text = book.author,
                     overflow = TextOverflow.Ellipsis,
                     maxLines = 1,
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    color = MaterialTheme.colorScheme.outline,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 if (showProgress) {
@@ -119,13 +119,13 @@ fun BookListItem(
                             modifier = Modifier.width(56.dp),
                             progress = { book.progressValue },
                             color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.outlineVariant
+                            trackColor = MaterialTheme.colorScheme.outline
                         )
                         Text(
                             text = "${book.progressPercentage}%",
                             overflow = TextOverflow.Ellipsis,
                             maxLines = 1,
-                            color = MaterialTheme.colorScheme.outlineVariant,
+                            color = MaterialTheme.colorScheme.outline,
                             style = MaterialTheme.typography.bodySmall
                         )
                     }

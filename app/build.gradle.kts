@@ -118,6 +118,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.shimmer.compose)
+    implementation(libs.haze.compose)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

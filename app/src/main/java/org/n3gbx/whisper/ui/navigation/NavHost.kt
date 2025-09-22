@@ -11,6 +11,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.navigation
 import androidx.navigation.toRoute
 import org.n3gbx.whisper.feature.catalog.CatalogScreen
@@ -46,7 +47,9 @@ fun NavGraphBuilder.catalogGraph(
     navController: NavHostController,
 ) {
     navigation<CatalogRoot>(
-        startDestination = Catalog
+        startDestination = Catalog,
+        enterTransition = { tabEnterTransition() },
+        exitTransition = { tabExitTransition() }
     ) {
         composable<Catalog> {
             CatalogScreen(
@@ -63,7 +66,9 @@ fun NavGraphBuilder.libraryGraph(
     navController: NavHostController
 ) {
     navigation<LibraryRoot>(
-        startDestination = Library
+        startDestination = Library,
+        enterTransition = { tabEnterTransition() },
+        exitTransition = { tabExitTransition() }
     ) {
         composable<Library> {
             LibraryScreen(
@@ -80,7 +85,9 @@ fun NavGraphBuilder.settingsGraph(
     navController: NavHostController
 ) {
     navigation<SettingsRoot>(
-        startDestination = Settings
+        startDestination = Settings,
+        enterTransition = { tabEnterTransition() },
+        exitTransition = { tabExitTransition() }
     ) {
         composable<Settings> {
             SettingsScreen()

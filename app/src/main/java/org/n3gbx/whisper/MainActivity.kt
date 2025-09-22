@@ -9,13 +9,20 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Composition
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.State
@@ -25,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,7 +43,9 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
+import dev.chrisbanes.haze.rememberHazeState
 import kotlinx.serialization.json.Json
+import org.n3gbx.whisper.Constants.BOTTOM_NAV_BAR_MIN_HEIGHT
 import org.n3gbx.whisper.feature.miniplayer.MiniPlayer
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 import org.n3gbx.whisper.feature.player.PlayerViewModel
@@ -47,6 +57,7 @@ import org.n3gbx.whisper.ui.navigation.Player
 import org.n3gbx.whisper.ui.navigation.SettingsRoot
 import org.n3gbx.whisper.ui.navigation.LibraryRoot
 import org.n3gbx.whisper.ui.navigation.Tab
+import org.n3gbx.whisper.ui.utils.LocalHazeState
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -58,7 +69,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             WhisperTheme {
-                RootContent()
+                CompositionLocalProvider(
+                    LocalHazeState provides rememberHazeState()
+                ) {
+                    RootContent()
+                }
             }
         }
     }
@@ -87,7 +102,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val miniPlayerBottomOffsetDp by animateDpAsState(
-            targetValue = if (isNavBarVisible) 80.dp else 0.dp,
+            targetValue = if (isNavBarVisible) BOTTOM_NAV_BAR_MIN_HEIGHT.dp else 0.dp,
             animationSpec = tween(durationMillis = 300),
             label = "miniPlayerBottomOffsetDp"
         )
@@ -105,11 +120,10 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             },
-            contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
-        ) { innerPadding ->
+        ) { _ ->
             Box(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.BottomCenter
+                contentAlignment = Alignment.BottomCenter,
             ) {
                 NavHost(
                     playerViewModel = playerViewModel,

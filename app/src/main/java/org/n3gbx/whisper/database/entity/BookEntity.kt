@@ -21,7 +21,7 @@ data class BookEntity (
     val narrator: String?,
     val coverUrl: String?,
     val description: String?,
-    val isBookmarked: Boolean
+    val isBookmarked: Boolean,
 ) {
 
     class Update(

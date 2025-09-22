@@ -15,7 +15,6 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -26,6 +25,7 @@ import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.BooksType
 import org.n3gbx.whisper.ui.common.components.BookListItem
+import org.n3gbx.whisper.ui.utils.toolbarColors
 
 @Composable
 fun LibraryScreen(
@@ -58,9 +58,7 @@ private fun LibraryContent(
                 title = {
                     Text(text = "Library")
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                colors = toolbarColors()
             )
         }
     ) { padding ->
@@ -71,7 +69,8 @@ private fun LibraryContent(
         ) {
             ScrollableTabRow(
                 modifier = Modifier.fillMaxWidth(),
-                selectedTabIndex = uiState.selectedBooksTypeIndex
+                selectedTabIndex = uiState.selectedBooksTypeIndex,
+                containerColor = MaterialTheme.colorScheme.background
             ) {
                 uiState.booksTypes.forEachIndexed { index, tab ->
                     val tabTitle = remember(tab) {

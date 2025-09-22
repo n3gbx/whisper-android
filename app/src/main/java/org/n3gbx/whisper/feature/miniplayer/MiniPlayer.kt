@@ -53,7 +53,7 @@ fun MiniPlayer(
     playerViewModel: PlayerViewModel,
     shouldHide: Boolean,
     additionalBottomOffsetDp: Dp = 80.dp,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val uiState by playerViewModel.uiState.collectAsStateWithLifecycle()
 
@@ -102,7 +102,7 @@ fun MiniPlayer(
                             isPlaying = uiState.isPlaying,
                             isLoading = uiState.isBuffering,
                             onPlayPauseClick = playerViewModel::onPlayPauseButtonClick,
-                            onDismissClick = playerViewModel::onDismissButtonClick
+                            onDismissClick = playerViewModel::onMiniPlayerDismissButtonClicked
                         )
                     }
                     ProgressIndicator(

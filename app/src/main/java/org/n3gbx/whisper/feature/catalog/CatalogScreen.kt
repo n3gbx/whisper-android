@@ -8,26 +8,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
@@ -45,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -63,6 +56,7 @@ import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.ui.common.components.BookListItem
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
+import org.n3gbx.whisper.ui.common.components.DropdownMenuBox
 import org.n3gbx.whisper.ui.common.components.SearchToolbar
 import org.n3gbx.whisper.ui.common.components.TotalDuration
 import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
@@ -94,6 +88,7 @@ fun CatalogScreen(
         onSearchToggle = viewModel::onSearchToggle,
         onSearchQueryClear = viewModel::onSearchQueryClear,
         onBookmarkButtonClick = viewModel::onBookmarkButtonClick,
+        onSortOptionChange = viewModel::onSortOptionChange,
         onClick = navigateToPlayer,
         onLayoutToggle = toggleLayout,
     )
@@ -109,8 +104,9 @@ private fun CatalogContent(
     onSearchQueryChange: (String) -> Unit,
     onSearchToggle: () -> Unit,
     onSearchQueryClear: () -> Unit,
-    onClick: (bookId: Identifier) -> Unit,
     onBookmarkButtonClick: (bookId: Identifier) -> Unit,
+    onSortOptionChange: (SortOption?) -> Unit,
+    onClick: (bookId: Identifier) -> Unit,
     onLayoutToggle: () -> Unit,
 ) {
     Scaffold(
@@ -124,10 +120,10 @@ private fun CatalogContent(
                 onSearchQueryClear = onSearchQueryClear,
             )
         },
-    ) { padding ->
+    ) { innerPadding ->
         Box(
             modifier = Modifier
-                .padding(padding)
+                .padding(innerPadding)
                 .padding(horizontal = 16.dp)
                 .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
@@ -140,6 +136,7 @@ private fun CatalogContent(
                     onBookmarkButtonClick = onBookmarkButtonClick,
                     onClick = onClick,
                     onLayoutToggle = onLayoutToggle,
+                    onSortOptionChange = onSortOptionChange
                 )
             }
             PullToRefreshContainer(
@@ -160,17 +157,20 @@ private fun Catalog(
     onBookmarkButtonClick: (bookId: Identifier) -> Unit,
     onClick: (bookId: Identifier) -> Unit,
     onLayoutToggle: () -> Unit,
+    onSortOptionChange: (SortOption?) -> Unit,
 ) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .imePadding()
             .bottomNavBarPadding(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         CatalogHeader(
+            sortOptions = uiState.sortOptions,
+            selectedSortOption = uiState.selectedSortOption,
             isGridLayout = isGridLayout,
-            onLayoutToggle = onLayoutToggle
+            onLayoutToggle = onLayoutToggle,
+            onSortOptionChange = onSortOptionChange
         )
         if (isGridLayout) {
             BooksGrid(
@@ -191,16 +191,70 @@ private fun Catalog(
 @Composable
 private fun CatalogHeader(
     modifier: Modifier = Modifier,
+    sortOptions: List<SortOption>,
+    selectedSortOption: SortOption?,
     isGridLayout: Boolean,
-    onLayoutToggle: () -> Unit
+    onLayoutToggle: () -> Unit,
+    onSortOptionChange: (SortOption?) -> Unit
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Sort(
+            options = sortOptions,
+            selectedOption = selectedSortOption,
+            onChange = onSortOptionChange
+        )
+        Layout(
+            isGridLayout = isGridLayout,
+            onToggle = onLayoutToggle
+        )
+    }
+}
+
+@Composable
+private fun Layout(
+    modifier: Modifier = Modifier,
+    isGridLayout: Boolean,
+    onToggle: () -> Unit
+) {
+    Icon(
+        modifier = modifier.clickable(onClick = onToggle),
+        imageVector = if (isGridLayout) Icons.Default.List else Icons.Default.GridView,
+        contentDescription = "Layout",
+        tint = MaterialTheme.colorScheme.primary
+    )
+}
+
+@Composable
+private fun Sort(
+    modifier: Modifier = Modifier,
+    options: List<SortOption>,
+    selectedOption: SortOption?,
+    onChange: (SortOption?) -> Unit
+) {
+    var isDropdownMenuVisible by remember { mutableStateOf(false) }
+
+    val sortLabel = if (selectedOption == null) "Sort" else "Sort by: ${selectedOption.label}"
+
+    DropdownMenuBox(
+        modifier = modifier,
+        isVisible = isDropdownMenuVisible,
+        options = options,
+        selectedOption = selectedOption,
+        optionLabel = { it.label },
+        onSelect = onChange,
+        onReset = { onChange(null) },
+        onDismiss = {
+            isDropdownMenuVisible = false
+        }
+    ) {
         Row(
-            modifier = Modifier.clickable {},
+            modifier = Modifier.clickable {
+                isDropdownMenuVisible = true
+            },
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Icon(
@@ -209,17 +263,11 @@ private fun CatalogHeader(
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
-                text = "Sort",
+                text = sortLabel,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
         }
-
-        Icon(
-            modifier = Modifier.clickable(onClick = onLayoutToggle),
-            imageVector = if (isGridLayout) Icons.Default.List else Icons.Default.GridView,
-            contentDescription = "Layout",
-            tint = MaterialTheme.colorScheme.primary
-        )
     }
 }
 
@@ -347,7 +395,7 @@ private fun BookGridItem(
                     text = book.author,
                     overflow = TextOverflow.Ellipsis,
                     maxLines = 1,
-                    color = MaterialTheme.colorScheme.outlineVariant,
+                    color = MaterialTheme.colorScheme.outline,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -378,13 +426,13 @@ private fun CatalogLoading(
                 modifier = Modifier
                     .shimmer()
                     .size(width = 48.dp, height = 16.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant),
+                    .background(MaterialTheme.colorScheme.outline),
             )
             Box(
                 modifier = Modifier
                     .shimmer()
                     .size(width = 16.dp, height = 16.dp)
-                    .background(MaterialTheme.colorScheme.outlineVariant),
+                    .background(MaterialTheme.colorScheme.outline),
             )
         }
 
@@ -402,7 +450,7 @@ private fun CatalogLoading(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.outlineVariant),
+                        .background(MaterialTheme.colorScheme.outline),
                 )
                 Column(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -411,13 +459,13 @@ private fun CatalogLoading(
                         modifier = Modifier
                             .fillMaxWidth(0.7f)
                             .height(16.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant),
+                            .background(MaterialTheme.colorScheme.outline),
                     )
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(0.3f)
                             .height(12.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant),
+                            .background(MaterialTheme.colorScheme.outline),
                     )
                 }
             }

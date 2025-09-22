@@ -24,6 +24,7 @@ googleid = "1.1.1"
 splashscreen = "1.0.1"
 media3 = "1.8.0"
 shimmer = "1.3.3"
+haze = "1.6.10"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -82,6 +83,7 @@ androidx-media3-common-ktx = { group = "androidx.media3", name="media3-common-kt
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name="kotlinx-serialization-json", version.ref="kotlinx"}
 
 shimmer-compose = { group = "com.valentinilk.shimmer", name="compose-shimmer", version.ref="shimmer"}
+haze-compose = { group = "dev.chrisbanes.haze", name="haze", version.ref="haze"}
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

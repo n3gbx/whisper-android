@@ -7,6 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import org.n3gbx.whisper.ui.utils.toolbarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -18,6 +19,7 @@ fun SettingsScreen() {
                 title = {
                     Text(text = "Settings")
                 },
+                colors = toolbarColors()
             )
         }
     ) { padding ->

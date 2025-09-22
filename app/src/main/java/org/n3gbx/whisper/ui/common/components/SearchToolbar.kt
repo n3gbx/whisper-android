@@ -2,6 +2,7 @@ package org.n3gbx.whisper.ui.common.components
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
@@ -27,6 +28,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.n3gbx.whisper.ui.utils.toolbarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,7 +86,7 @@ fun SearchToolbar(
                             if (searchQuery.isEmpty()) {
                                 Text(
                                     text = "Title, author or description",
-                                    color = MaterialTheme.colorScheme.outlineVariant,
+                                    color = MaterialTheme.colorScheme.outline,
                                     style = MaterialTheme.typography.bodyLarge
                                 )
                             }
@@ -113,8 +115,6 @@ fun SearchToolbar(
                 }
             }
         },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background
-        ),
+        colors = toolbarColors(),
     )
 }

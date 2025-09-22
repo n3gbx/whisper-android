@@ -2,6 +2,7 @@ package org.n3gbx.whisper.feature.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.SavedStateHandle
@@ -16,6 +17,7 @@ import androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION
 import androidx.media3.common.Player.EVENT_POSITION_DISCONTINUITY
 import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
 import androidx.media3.session.MediaController
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -33,7 +35,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
-import org.n3gbx.whisper.platform.PlayerPlaybackService
 import org.n3gbx.whisper.data.BookRepository
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.BACKWARD
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.FORWARD
@@ -41,6 +42,9 @@ import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.BookEpisode
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
+import org.n3gbx.whisper.platform.PlayerPlaybackService
+import org.n3gbx.whisper.platform.PlayerPlaybackService.CustomCommand.CANCEL_SLEEP_TIMER
+import org.n3gbx.whisper.platform.PlayerPlaybackService.CustomCommand.START_SLEEP_TIMER
 import javax.inject.Inject
 
 @HiltViewModel
@@ -67,6 +71,36 @@ class PlayerViewModel @Inject constructor(
         initController()
     }
 
+    fun onSpeedOptionChange(speedOption: SpeedOption) {
+        _uiState.update {
+            it.copy(selectedSpeedOption = speedOption)
+        }
+        controller.setPlaybackSpeed(speedOption.value)
+        sendMessageEvent("Speed set: ${speedOption.label}")
+    }
+
+    fun onSleepTimerOptionChange(sleepTimerOption: SleepTimerOption?) {
+        _uiState.update {
+            it.copy(selectedSleepTimerOption = sleepTimerOption)
+        }
+
+        if (sleepTimerOption != null) {
+            val commandExtras = Bundle().apply { putLong("duration", sleepTimerOption.value) }
+
+            controller.sendCustomCommand(
+                SessionCommand(START_SLEEP_TIMER.name, commandExtras),
+                Bundle.EMPTY
+            )
+            sendMessageEvent("Sleep timer set: ${sleepTimerOption.label}")
+        } else {
+            controller.sendCustomCommand(
+                SessionCommand(CANCEL_SLEEP_TIMER.name, Bundle.EMPTY),
+                Bundle.EMPTY
+            )
+            sendMessageEvent("Sleep timer cancelled")
+        }
+    }
+
     fun setBook(bookId: Identifier?) {
         if (::controller.isInitialized && bookId != null && currentBookId != bookId) {
             observeBook(bookId)
@@ -75,13 +109,13 @@ class PlayerViewModel @Inject constructor(
 
     fun onDescriptionButtonClick() {
         _uiState.update {
-            it.copy(shouldShowDescription = true)
+            it.copy(showDescription = true)
         }
     }
 
     fun onDescriptionDismiss() {
         _uiState.update {
-            it.copy(shouldShowDescription = false)
+            it.copy(showDescription = false)
         }
     }
 
@@ -93,7 +127,7 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun onDismissButtonClick() {
+    fun onMiniPlayerDismissButtonClicked() {
         // stop player
         controller.pause()
         controller.stop()
@@ -252,7 +286,9 @@ class PlayerViewModel @Inject constructor(
                             _uiState.update {
                                 it.copy(
                                     book = book,
-                                    isLoading = false
+                                    isLoading = false,
+                                    isBookmarkButtonVisible = true,
+                                    isDescriptionButtonVisible = !book.description.isNullOrBlank(),
                                 )
                             }
 
@@ -309,6 +345,12 @@ class PlayerViewModel @Inject constructor(
             },
             ContextCompat.getMainExecutor(context)
         )
+    }
+
+    private fun sendMessageEvent(message: String) {
+        viewModelScope.launch {
+            _uiEvents.emit(PlayerUiEvent.ShowMessage(message))
+        }
     }
 
     private fun MutableStateFlow<PlayerUiState>.updateDuration(value: Long) {

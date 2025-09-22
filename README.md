@@ -15,7 +15,7 @@ Audiobooks Android application <br/>
 ## Features
 - Catalog (search, sort, view)
 - MyLibrary (started, finished, saved, downloaded (soon))
-- Player (pause/play, episodes list, skip forward/backward, playback skip, progress cache, sleep timer (soon), playback speed (soon))
+- Player (pause/play, episodes navigation, rewind forward/backward/manual, progress cache, sleep timer, playback speed)
 - Settings (soon)
 - Catalog caching
 

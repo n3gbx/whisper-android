@@ -20,7 +20,7 @@ import org.n3gbx.whisper.ui.utils.convertToTime
 @Composable
 fun TotalDuration(
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.outlineVariant,
+    color: Color = MaterialTheme.colorScheme.outline,
     totalDuration: Long
 ) {
     Row(

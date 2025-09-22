@@ -29,6 +29,7 @@ import org.n3gbx.whisper.database.entity.BookEpisodeProgressEntity
 import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.BookEpisode
 import org.n3gbx.whisper.model.BookEpisodeProgress
+import org.n3gbx.whisper.model.BooksSortType
 import org.n3gbx.whisper.model.BooksType
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
@@ -80,7 +81,8 @@ class BookRepository @Inject constructor(
     fun getBooks(
         query: String? = null,
         shouldRefresh: Boolean = false,
-        booksType: BooksType? = null
+        booksType: BooksType? = null,
+        booksSortType: BooksSortType? = null
     ): Flow<Result<List<Book>>> {
         return networkBoundResource(
             query = {
@@ -106,7 +108,7 @@ class BookRepository @Inject constructor(
             shouldFetch = { localBooks ->
                 localBooks.isNullOrEmpty() || shouldRefresh
             }
-        ).filterBooks(query, booksType)
+        ).filterBooks(query, booksType, booksSortType)
     }
 
     suspend fun updateBookEpisodeProgress(
@@ -145,23 +147,34 @@ class BookRepository @Inject constructor(
 
     private fun Flow<Result<List<Book>>>.filterBooks(
         searchQuery: String?,
-        booksType: BooksType?
-    ) = transform { value ->
-        val result = if (value is Result.Success) {
-            val filteredData = value.data.filter { book ->
-                val isBooksTypeMatched = when (booksType) {
-                    BooksType.STARTED -> book.isStarted
-                    BooksType.FINISHED -> book.isFinished
-                    BooksType.SAVED -> book.isBookmarked
-                    else -> true
-                }
-                book.matchesQuery(searchQuery) && isBooksTypeMatched
+        booksType: BooksType?,
+        booksSortType: BooksSortType?
+    ) = map { result ->
+        if (result !is Result.Success) return@map result
+
+        val filteredData = result.data.filter { book ->
+            val isBooksTypeMatched = when (booksType) {
+                BooksType.STARTED -> book.isStarted
+                BooksType.FINISHED -> book.isFinished
+                BooksType.SAVED -> book.isBookmarked
+                else -> true
             }
-            Result.Success(filteredData)
-        } else {
-            value
+            book.matchesQuery(searchQuery) && isBooksTypeMatched
         }
-        return@transform emit(result)
+
+        val finalData = when (booksSortType) {
+            BooksSortType.TITLE_ASC ->
+                filteredData.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+            BooksSortType.TITLE_DESC ->
+                filteredData.sortedWith(compareByDescending(String.CASE_INSENSITIVE_ORDER) { it.title })
+            BooksSortType.LENGTH_ASC ->
+                filteredData.sortedBy { it.totalDuration }
+            BooksSortType.LENGTH_DESC ->
+                filteredData.sortedByDescending { it.totalDuration }
+            else -> filteredData
+        }
+
+        Result.Success(finalData)
     }
 
     private fun associateRemoteAndLocalBooks(

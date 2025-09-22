@@ -2,6 +2,8 @@ package org.n3gbx.whisper.ui.navigation
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.EaseIn
+import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -26,7 +28,7 @@ fun playerExitTransition(): ExitTransition {
         targetOffsetY = { -it / 3 },
         animationSpec = tween(
             durationMillis = NAV_ANIM_DURATION,
-            easing = FastOutSlowInEasing
+            easing = EaseInOut
         )
     ) + fadeOut(animationSpec = tween(NAV_ANIM_DURATION))
 }
@@ -46,7 +48,15 @@ fun playerPopExitTransition(): ExitTransition {
         targetOffsetY = { it },
         animationSpec = tween(
             durationMillis = NAV_ANIM_DURATION,
-            easing = FastOutSlowInEasing
+            easing = EaseInOut
         )
     ) + fadeOut(animationSpec = tween(NAV_ANIM_DURATION))
+}
+
+fun tabEnterTransition(): EnterTransition {
+    return fadeIn(animationSpec = tween(NAV_ANIM_DURATION))
+}
+
+fun tabExitTransition(): ExitTransition {
+    return fadeOut(animationSpec = tween(NAV_ANIM_DURATION))
 }

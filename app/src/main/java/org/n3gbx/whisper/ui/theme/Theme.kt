@@ -35,13 +35,13 @@ private val lightColorScheme = lightColorScheme(
     scrim = Color(0xFF000000),
     inverseSurface = Color(0xFF121212),
     inverseOnSurface = Color(0xFFFFFFFF),
-    inversePrimary = Color(0xFFFF5722)
+    inversePrimary = Color(0xFFFF5722),
 )
 
 private val darkColorScheme = darkColorScheme(
-    primary = Color(0xFFFF7043),
+    primary = Color(0xFFFF5722),
     onPrimary = Color(0xFF000000),
-    primaryContainer = Color(0xFFFF7043).copy(alpha = 0.8f),
+    primaryContainer = Color(0xFFFF5722).copy(alpha = 0.8f),
     onPrimaryContainer = Color(0xFF000000),
     secondary = Color(0xFFE0E0E0),
     onSecondary = Color(0xFF000000),
@@ -66,7 +66,7 @@ private val darkColorScheme = darkColorScheme(
     scrim = Color(0xFF000000),
     inverseSurface = Color(0xFFE0E0E0),
     inverseOnSurface = Color(0xFF121212),
-    inversePrimary = Color(0xFFFF7043)
+    inversePrimary = Color(0xFFFF5722)
 )
 
 @Composable
