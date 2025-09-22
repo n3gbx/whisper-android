@@ -13,11 +13,10 @@ Audiobooks Android application <br/>
 - MVI
 
 ## Features
-- Catalog (search, sort, view)
+- Catalog (caching, search, sort, view)
 - MyLibrary (started, finished, saved, downloaded (soon))
 - Player (pause/play, episodes navigation, rewind forward/backward/manual, progress cache, sleep timer, playback speed)
 - Settings (soon)
-- Catalog caching
 
 ## Preview
 <p style="margin : 0" align="center">
