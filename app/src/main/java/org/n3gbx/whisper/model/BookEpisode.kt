@@ -24,4 +24,11 @@ data class BookEpisode(
 
     val progressPercentage: Int
         get() = (progressValue * 100).roundToInt()
+
+    val progressType: ProgressType
+        get() = when(progressValue) {
+            1f -> ProgressType.FINISHED
+            0f -> ProgressType.NOT_STARTED
+            else -> ProgressType.STARTED
+        }
 }

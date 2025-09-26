@@ -25,6 +25,7 @@ import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.BooksType
 import org.n3gbx.whisper.ui.common.components.BookListItem
+import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
 import org.n3gbx.whisper.ui.utils.toolbarColors
 
 @Composable
@@ -66,6 +67,7 @@ private fun LibraryContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(padding)
+                .bottomNavBarPadding()
         ) {
             ScrollableTabRow(
                 modifier = Modifier.fillMaxWidth(),

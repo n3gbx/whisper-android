@@ -63,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import org.n3gbx.whisper.model.BookEpisode
 import org.n3gbx.whisper.model.Identifier
+import org.n3gbx.whisper.model.ProgressType
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
 import org.n3gbx.whisper.ui.common.components.DropdownMenuBox
 import org.n3gbx.whisper.ui.theme.WhisperTheme
@@ -344,6 +345,13 @@ private fun Episodes(
                             if (index == recentEpisodeIndex) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurface
 
+                        val subtitle =
+                            when (episode.progressType) {
+                                ProgressType.FINISHED -> "Finished"
+                                ProgressType.STARTED -> "Started (${episode.progressPercentage}%)"
+                                ProgressType.NOT_STARTED -> "Not started"
+                            }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -368,13 +376,13 @@ private fun Episodes(
                                     maxLines = 1,
                                 )
                                 Text(
-                                    text = episode.duration.convertToTime(),
+                                    text = subtitle,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.outline
                                 )
                             }
                             Text(
-                                text = "${episode.progressPercentage}%",
+                                text = episode.duration.convertToTime(),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
