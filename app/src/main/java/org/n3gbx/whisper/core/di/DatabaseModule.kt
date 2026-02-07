@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.di
+package org.n3gbx.whisper.core.di
 
 import android.content.Context
 import androidx.room.Room

@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+import org.n3gbx.whisper.core.Constants.UNSET_TIME
 import org.n3gbx.whisper.database.entity.EpisodeEmbeddedEntity
 import org.n3gbx.whisper.database.entity.EpisodeEntity
 
@@ -17,8 +18,14 @@ interface EpisodeDao {
     @Query("SELECT * FROM episode WHERE id_localId = :localId")
     fun getEpisode(localId: String): Flow<EpisodeEmbeddedEntity?>
 
+    @Query("SELECT * FROM episode WHERE duration = :unsetDuration LIMIT :limit")
+    fun getEpisodesWithoutDuration(unsetDuration: Long = UNSET_TIME, limit: Int): Flow<List<EpisodeEmbeddedEntity>>
+
     @Query("SELECT * FROM episode WHERE localPath IS NOT NULL")
     fun getDownloadedEpisodes(): Flow<List<EpisodeEmbeddedEntity>>
+
+    @Query("UPDATE episode SET duration = :duration WHERE id_localId = :episodeLocalId")
+    suspend fun setEpisodeDuration(episodeLocalId: String, duration: Long)
 
     @Query("UPDATE episode SET localPath = NULL WHERE id_localId = :episodeLocalId")
     suspend fun clearEpisodeLocalPath(episodeLocalId: String)

@@ -1,7 +1,7 @@
 package org.n3gbx.whisper.ui.utils
 
 import androidx.media3.common.C
-import org.n3gbx.whisper.Constants.UNSET_TIME_PLACEHOLDER
+import org.n3gbx.whisper.core.Constants.UNSET_TIME_PLACEHOLDER
 import kotlin.math.abs
 
 fun Long?.convertToTime(): String {

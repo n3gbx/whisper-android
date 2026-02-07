@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.utils
+package org.n3gbx.whisper.core.worker.custom
 
 import androidx.work.DelegatingWorkerFactory
 import javax.inject.Inject

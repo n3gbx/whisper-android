@@ -1,5 +1,6 @@
 package org.n3gbx.whisper.data
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapLatest
 import org.n3gbx.whisper.datastore.MainDatastore
@@ -18,6 +19,7 @@ class SettingsRepository @Inject constructor(
 
     fun getInstallationId(): Flow<String?> = datastore.getInstallationId()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun getThemeSetting(): Flow<ApplicationTheme> = datastore.isDarkTheme()
         .mapLatest {
             when (it) {

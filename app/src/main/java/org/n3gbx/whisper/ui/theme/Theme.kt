@@ -5,7 +5,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
+import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import org.n3gbx.whisper.model.ApplicationTheme
 
 private val lightColorScheme = lightColorScheme(
     primary = Color(0xFFFF5722),
@@ -71,11 +74,26 @@ private val darkColorScheme = darkColorScheme(
 
 @Composable
 fun WhisperTheme(
-    isSystemInDarkTheme: Boolean = isSystemInDarkTheme(),
+    applicationTheme: ApplicationTheme = ApplicationTheme.SYSTEM,
     content: @Composable () -> Unit
 ) {
+    val isDarkTheme = when (applicationTheme) {
+        ApplicationTheme.SYSTEM -> isSystemInDarkTheme()
+        ApplicationTheme.DARK -> true
+        ApplicationTheme.LIGHT -> false
+    }
+    val systemUiController = rememberSystemUiController()
+
+    DisposableEffect(systemUiController, isDarkTheme) {
+        systemUiController.setSystemBarsColor(
+            color = Color.Transparent,
+            darkIcons = !isDarkTheme
+        )
+        onDispose {}
+    }
+
     val colorScheme = when {
-        isSystemInDarkTheme -> darkColorScheme
+        isDarkTheme -> darkColorScheme
         else -> lightColorScheme
     }
 

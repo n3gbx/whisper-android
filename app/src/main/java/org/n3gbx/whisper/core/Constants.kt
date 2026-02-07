@@ -1,4 +1,4 @@
-package org.n3gbx.whisper
+package org.n3gbx.whisper.core
 
 object Constants {
     const val TAG = "WhisperDebug"

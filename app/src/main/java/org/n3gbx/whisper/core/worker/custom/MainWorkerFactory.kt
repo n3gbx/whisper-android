@@ -1,15 +1,20 @@
-package org.n3gbx.whisper.utils
+package org.n3gbx.whisper.core.worker.custom
 
 import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import org.n3gbx.whisper.core.common.EpisodeDurationProberContext
+import org.n3gbx.whisper.core.worker.EpisodeDownloadWorker
+import org.n3gbx.whisper.core.worker.EpisodeDurationProbeWorker
 import org.n3gbx.whisper.data.EpisodeRepository
-import org.n3gbx.whisper.platform.EpisodeDownloadWorker
+import org.n3gbx.whisper.database.dao.EpisodeDao
 import javax.inject.Inject
 
 class MainWorkerFactory @Inject constructor(
     private val episodeRepository: EpisodeRepository,
+    private val episodeDao: EpisodeDao,
+    private val episodeDurationProberContext: EpisodeDurationProberContext,
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -23,6 +28,13 @@ class MainWorkerFactory @Inject constructor(
                     appContext = appContext,
                     workerParams = workerParameters,
                     episodeRepository = episodeRepository,
+                )
+            EpisodeDurationProbeWorker::class.java.name ->
+                EpisodeDurationProbeWorker(
+                    appContext = appContext,
+                    workerParams = workerParameters,
+                    episodeDao = episodeDao,
+                    episodeDurationProberContext = episodeDurationProberContext,
                 )
             else -> null
         }

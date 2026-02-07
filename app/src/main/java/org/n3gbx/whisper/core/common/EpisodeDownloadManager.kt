@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.utils
+package org.n3gbx.whisper.core.common
 
 import android.content.Context
 import androidx.work.Constraints
@@ -7,10 +7,10 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import dagger.hilt.android.qualifiers.ApplicationContext
-import org.n3gbx.whisper.platform.EpisodeDownloadWorker
-import org.n3gbx.whisper.platform.EpisodeDownloadWorker.Companion.BOOK_LOCAL_ID_INPUT_DATA
-import org.n3gbx.whisper.platform.EpisodeDownloadWorker.Companion.EPISODE_LOCAL_ID_INPUT_DATA
-import org.n3gbx.whisper.platform.EpisodeDownloadWorker.Companion.EPISODE_URL_INPUT_DATA
+import org.n3gbx.whisper.core.worker.EpisodeDownloadWorker
+import org.n3gbx.whisper.core.worker.EpisodeDownloadWorker.Companion.BOOK_LOCAL_ID_INPUT_DATA
+import org.n3gbx.whisper.core.worker.EpisodeDownloadWorker.Companion.EPISODE_LOCAL_ID_INPUT_DATA
+import org.n3gbx.whisper.core.worker.EpisodeDownloadWorker.Companion.EPISODE_URL_INPUT_DATA
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton

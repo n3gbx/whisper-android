@@ -17,6 +17,7 @@ import org.n3gbx.whisper.feature.settings.Setting.Type.DOWNLOADS
 import org.n3gbx.whisper.feature.settings.Setting.Type.BACKUP
 import org.n3gbx.whisper.feature.settings.Setting.Type.VERSION
 import org.n3gbx.whisper.feature.settings.Setting.Type.CLEAR_DATA
+import org.n3gbx.whisper.model.ApplicationTheme
 
 @Immutable
 data class SettingsUiState(
@@ -24,9 +25,10 @@ data class SettingsUiState(
     val autoPlay: Boolean = false,
     val autoDownload: Boolean = false,
     val downloadWifiOnly: Boolean = false,
-    val theme: String = "",
+    val theme: ApplicationTheme = ApplicationTheme.SYSTEM,
     val language: String = "",
-    val version: String = ""
+    val version: String = "",
+    val showThemeOptionsDialog: Boolean = false,
 ) {
 
     val settings = listOf(
@@ -55,8 +57,8 @@ sealed interface Setting {
     ) : Setting
 
     @Immutable
-    data class Value(
-        val value: String,
+    data class Value<T>(
+        val value: T,
         override val type: Type,
         override val section: Section
     ): Setting

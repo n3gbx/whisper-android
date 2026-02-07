@@ -9,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
+import androidx.media3.common.C.INDEX_UNSET
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -28,11 +29,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -46,15 +56,19 @@ import org.n3gbx.whisper.model.DownloadState
 import org.n3gbx.whisper.model.Episode
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
-import org.n3gbx.whisper.platform.PlayerPlaybackService
-import org.n3gbx.whisper.platform.PlayerPlaybackService.CustomCommand.CANCEL_SLEEP_TIMER
-import org.n3gbx.whisper.platform.PlayerPlaybackService.CustomCommand.START_SLEEP_TIMER
-import org.n3gbx.whisper.utils.EpisodeDownloadManager
+import org.n3gbx.whisper.core.service.PlayerPlaybackService
+import org.n3gbx.whisper.core.service.PlayerPlaybackService.CustomCommand.CANCEL_SLEEP_TIMER
+import org.n3gbx.whisper.core.service.PlayerPlaybackService.CustomCommand.START_SLEEP_TIMER
+import org.n3gbx.whisper.core.common.EpisodeDownloadManager
+import org.n3gbx.whisper.data.SettingsRepository
+import org.n3gbx.whisper.model.ConnectionType
+import org.n3gbx.whisper.utils.connectionTypeFlow
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
+    private val settingsRepository: SettingsRepository,
     private val bookRepository: BookRepository,
     private val episodeRepository: EpisodeRepository,
     private val episodeDownloadManager: EpisodeDownloadManager,
@@ -68,14 +82,60 @@ class PlayerViewModel @Inject constructor(
 
     private lateinit var controller: MediaController
 
+    private val isAutoDownloadEnabledState = combine(
+        context.connectionTypeFlow(),
+        settingsRepository.getAutoDownloadSetting(),
+        settingsRepository.getDownloadWifiOnlySetting(),
+    ) { connectionType, isAutoDownloadEnabled, isDownloadWifiOnlyEnabled ->
+        if (isDownloadWifiOnlyEnabled) {
+            connectionType == ConnectionType.WIFI && isAutoDownloadEnabled
+        } else {
+            connectionType != ConnectionType.NONE && isAutoDownloadEnabled
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = false,
+    )
+
+    private val isDownloadEnabledState = combine(
+        context.connectionTypeFlow(),
+        settingsRepository.getDownloadWifiOnlySetting(),
+    ) { connectionType, isDownloadWifiOnlyEnabled ->
+        if (isDownloadWifiOnlyEnabled) {
+            connectionType == ConnectionType.WIFI
+        } else {
+            connectionType != ConnectionType.NONE
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = false,
+    )
+
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     private val _uiEvents = MutableSharedFlow<PlayerUiEvent>()
     val uiEvents: SharedFlow<PlayerUiEvent> = _uiEvents.asSharedFlow()
 
+    private val autoPlayTrigger =
+        _uiState
+            .map { !it.isLoading && !it.isBuffering }
+            .distinctUntilChanged()
+            .filter { it }
+            .map { Unit }
+
     init {
         initController()
+        observeAutoPlayTrigger()
+        observeAutoDownload()
+    }
+
+    fun setBook(bookId: Identifier?) {
+        if (::controller.isInitialized && bookId != null && currentBookId != bookId) {
+            observeBook(bookId)
+        }
     }
 
     fun onSpeedOptionChange(speedOption: SpeedOption) {
@@ -105,12 +165,6 @@ class PlayerViewModel @Inject constructor(
                 Bundle.EMPTY
             )
             sendMessageEvent("Sleep timer cancelled")
-        }
-    }
-
-    fun setBook(bookId: Identifier?) {
-        if (::controller.isInitialized && bookId != null && currentBookId != bookId) {
-            observeBook(bookId)
         }
     }
 
@@ -171,46 +225,27 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onEpisodeClick(index: Int) {
-        if (_uiState.value.book?.recentEpisodeIndex != index) {
-            if (_uiState.getEpisodeByIndex(index)?.isFinished == true) {
-                controller.seekTo(index, 0) // start over if finished
-            } else {
-                val time = _uiState.getEpisodeCachedPlaybackPositionByIndex(index)
-                controller.seekTo(index, time) // resume on where left off
-            }
+        val isLoading = _uiState.value.isLoading
+        val isBuffering = _uiState.value.isBuffering
+        val isSameEpisode = _uiState.value.book?.recentEpisodeIndex == index
+
+        if (isLoading || isBuffering || isSameEpisode) return
+
+        if (_uiState.getEpisodeByIndex(index)?.isFinished == true) {
+            controller.seekTo(index, 0) // start over if finished
+        } else {
+            val time = _uiState.getEpisodeCachedPlaybackPositionByIndex(index)
+            controller.seekTo(index, time) // resume on where left off
         }
     }
 
     fun onEpisodeDownloadClick(index: Int) {
-        _uiState.getEpisodeByIndex(index)?.let { episode ->
-            viewModelScope.launch {
-                val isCancellable =
-                    episode.download?.state == DownloadState.QUEUED ||
-                        episode.download?.state == DownloadState.PROGRESSING
-
-                val episodeLocalId = episode.id.localId
-
-                when {
-                    episode.download == null -> {
-                        val workId = episodeDownloadManager.enqueueDownload(
-                            bookLocalId = episode.bookId.localId,
-                            episodeLocalId = episode.id.localId,
-                            episodeUrl = episode.url,
-                        )
-                        episodeRepository.markEpisodeDownloadQueued(
-                            workId = workId.toString(),
-                            episodeLocalId = episodeLocalId,
-                        )
-                    }
-                    isCancellable -> {
-                        val workId = episodeRepository.getEpisodeDownloadWorkId(episodeLocalId = episodeLocalId)
-                        if (workId != null) {
-                            episodeDownloadManager.cancelDownload(workId)
-                            episodeRepository.clearEpisodeDownload(episodeLocalId = episodeLocalId)
-                        }
-                    }
-                }
+        if (isDownloadEnabledState.value) {
+            _uiState.getEpisodeByIndex(index)?.let {
+                downloadEpisode(it)
             }
+        } else {
+            sendMessageEvent("Download is disabled by settings constraints")
         }
     }
 
@@ -233,6 +268,37 @@ class PlayerViewModel @Inject constructor(
                     episodeExternalId = externalEpisodeId,
                     currentTime = currentTime
                 )
+            }
+        }
+    }
+
+    private fun downloadEpisode(episode: Episode) {
+        viewModelScope.launch {
+            val isCancellable =
+                episode.download?.state == DownloadState.QUEUED ||
+                        episode.download?.state == DownloadState.PROGRESSING
+
+            val episodeLocalId = episode.id.localId
+
+            when {
+                episode.download == null -> {
+                    val workId = episodeDownloadManager.enqueueDownload(
+                        bookLocalId = episode.bookId.localId,
+                        episodeLocalId = episode.id.localId,
+                        episodeUrl = episode.url,
+                    )
+                    episodeRepository.markEpisodeDownloadQueued(
+                        workId = workId.toString(),
+                        episodeLocalId = episodeLocalId,
+                    )
+                }
+                isCancellable -> {
+                    val workId = episodeRepository.getEpisodeDownloadWorkId(episodeLocalId)
+                    if (workId != null) {
+                        episodeDownloadManager.cancelDownload(workId)
+                        episodeRepository.clearEpisodeDownload(episodeLocalId)
+                    }
+                }
             }
         }
     }
@@ -388,6 +454,49 @@ class PlayerViewModel @Inject constructor(
         )
     }
 
+    private fun observeAutoPlayTrigger() {
+        viewModelScope.launch {
+            autoPlayTrigger.collect {
+                if (settingsRepository.getAutoPlaySetting().first()) {
+                    if (this@PlayerViewModel::controller.isInitialized && !controller.isPlaying) {
+                        controller.play()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeAutoDownload() {
+        viewModelScope.launch {
+            combine(
+                isAutoDownloadEnabledState,
+                _uiState
+                    .map {
+                        val episodeIndex = getMediaControllerCurrentMediaItemIndex()
+                        val episodeId = _uiState.getEpisodeByIndex(episodeIndex)?.id?.localId
+                        episodeId to it.isPlaying
+                    }
+                    .distinctUntilChanged()
+            ) { isAutoDownloadEnabled, (episodeId, isPlaying) ->
+                Triple(isAutoDownloadEnabled, episodeId, isPlaying)
+            }
+                .filter { (isAutoDownloadEnabled, episodeId, isPlaying) ->
+                    isAutoDownloadEnabled && episodeId != null && isPlaying
+                }
+                .map { it.second!! }
+                .scan(emptySet<String>()) { processedEpisodes, episodeId ->
+                    if (episodeId in processedEpisodes) processedEpisodes
+                    else {
+                        _uiState.getEpisodeByLocalId(episodeId)?.let {
+                            downloadEpisode(it)
+                        }
+                        processedEpisodes + episodeId
+                    }
+                }.collect()
+
+        }
+    }
+
     private fun sendMessageEvent(message: String) {
         viewModelScope.launch {
             _uiEvents.emit(PlayerUiEvent.ShowMessage(message))
@@ -415,6 +524,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
+    private fun getMediaControllerCurrentMediaItemIndex() =
+        if (this@PlayerViewModel::controller.isInitialized) controller.currentMediaItemIndex else INDEX_UNSET
+
     private fun MutableStateFlow<PlayerUiState>.getCurrentEpisodeCachedPlaybackPosition(): Long {
         return value.book?.recentEpisode?.progress?.time ?: 0
     }
@@ -429,6 +541,10 @@ class PlayerViewModel @Inject constructor(
 
     private fun MutableStateFlow<PlayerUiState>.getEpisodeByExternalId(id: String?): Episode? {
         return value.book?.episodes?.find { it.id.externalId == id }
+    }
+
+    private fun MutableStateFlow<PlayerUiState>.getEpisodeByLocalId(id: String?): Episode? {
+        return value.book?.episodes?.find { it.id.localId == id }
     }
 
     inner class ControllerListener : Player.Listener {
@@ -451,29 +567,25 @@ class PlayerViewModel @Inject constructor(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                val prevIndex = controller.previousMediaItemIndex
-                val prevEpisode = _uiState.getEpisodeByIndex(prevIndex)
+                val prevEpisode = _uiState.getEpisodeByIndex(controller.previousMediaItemIndex)
 
                 if (prevEpisode != null) {
                     viewModelScope.launch {
                         saveEpisodePlaybackProgress(
                             externalEpisodeId = prevEpisode.id.externalId,
-                            currentTime = prevEpisode.duration
+                            currentTime = prevEpisode.duration,
                         )
                     }
                 }
             }
 
             val newEpisode = _uiState.getEpisodeByExternalId(mediaItem?.mediaId)
+
             if (newEpisode?.hasError == true) {
                 onEpisodeClick(controller.nextMediaItemIndex)
             } else if (newEpisode != null) {
                 _uiState.update {
-                    it.copy(
-                        book = it.book?.copy(
-                            recentEpisode = newEpisode
-                        )
-                    )
+                    it.copy(book = it.book?.copy(recentEpisode = newEpisode))
                 }
             }
         }

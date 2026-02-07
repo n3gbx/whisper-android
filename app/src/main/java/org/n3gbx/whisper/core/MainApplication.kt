@@ -1,4 +1,4 @@
-package org.n3gbx.whisper
+package org.n3gbx.whisper.core
 
 import android.app.Application
 import android.util.Log
@@ -9,7 +9,7 @@ import dagger.hilt.EntryPoints
 import dagger.hilt.InstallIn
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
-import org.n3gbx.whisper.utils.MainDelegationWorkerFactory
+import org.n3gbx.whisper.core.worker.custom.MainDelegationWorkerFactory
 
 @HiltAndroidApp
 class MainApplication : Application() {

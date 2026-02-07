@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.platform
+package org.n3gbx.whisper.core.common
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext

@@ -1,12 +1,9 @@
-package org.n3gbx.whisper.platform
+package org.n3gbx.whisper.core.service
 
 import android.content.Intent
 import android.os.Bundle
 import androidx.annotation.OptIn
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -14,7 +11,6 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import kotlinx.coroutines.flow.MutableSharedFlow
 import org.n3gbx.whisper.ui.utils.Timer
 
 class PlayerPlaybackService : MediaSessionService() {

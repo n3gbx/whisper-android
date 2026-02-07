@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.platform
+package org.n3gbx.whisper.core.worker
 
 import android.content.Context
 import androidx.work.CoroutineWorker

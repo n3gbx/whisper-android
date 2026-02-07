@@ -1,4 +1,4 @@
-package org.n3gbx.whisper
+package org.n3gbx.whisper.core
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition

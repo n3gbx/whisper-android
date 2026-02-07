@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.utils
+package org.n3gbx.whisper.core.common
 
 import android.content.Context
 import androidx.media3.common.MediaItem
@@ -9,7 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import org.n3gbx.whisper.Constants.UNSET_TIME
+import org.n3gbx.whisper.core.Constants.UNSET_TIME
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume

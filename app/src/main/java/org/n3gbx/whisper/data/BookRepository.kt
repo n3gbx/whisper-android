@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import org.n3gbx.whisper.Constants.UNSET_TIME
+import org.n3gbx.whisper.core.Constants.UNSET_TIME
+import org.n3gbx.whisper.core.common.EpisodeDurationProberContext
+import org.n3gbx.whisper.core.common.EpisodeDurationProberType
 import org.n3gbx.whisper.data.common.NetworkBoundResource
 import org.n3gbx.whisper.data.dto.BookDto
 import org.n3gbx.whisper.database.MainDatabase
@@ -41,7 +43,7 @@ import org.n3gbx.whisper.model.DownloadState
 import org.n3gbx.whisper.model.EpisodeDownload
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
-import org.n3gbx.whisper.utils.MetadataProbePlayer
+import org.n3gbx.whisper.core.common.MetadataProbePlayer
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -56,9 +58,8 @@ class BookRepository @Inject constructor(
     private val bookDao: BookDao,
     private val episodeDao: EpisodeDao,
     private val episodeProgressDao: EpisodeProgressDao,
-    private val episodeDownloadDao: EpisodeDownloadDao,
     private val networkBoundResource: NetworkBoundResource,
-    private val metadataProbePlayer: MetadataProbePlayer,
+    private val episodeDurationProberContext: EpisodeDurationProberContext,
 ) {
     private val booksCollection = "books"
 
@@ -339,6 +340,9 @@ class BookRepository @Inject constructor(
 
     private suspend fun List<EpisodeEmbeddedEntity>.probeDurations() =
         coroutineScope {
+            val proberContext = episodeDurationProberContext
+                .setStrategy(EpisodeDurationProberType.MEDIA_EXO_PLAYER)
+
             map { entity ->
                 async(Dispatchers.IO.limitedParallelism(5)) {
                     if (entity.episode.duration != UNSET_TIME) {
@@ -348,7 +352,7 @@ class BookRepository @Inject constructor(
 
                         // probe with retry
                         repeat(2) {
-                            val duration = metadataProbePlayer.probeDuration(episodeUrl)
+                            val duration = proberContext.executeStrategy(episodeUrl)
                             if (duration != UNSET_TIME) {
                                 return@async entity.copy(
                                     episode = entity.episode.copy(
@@ -384,20 +388,6 @@ class BookRepository @Inject constructor(
             }
         }.awaitAll()
     }
-
-//    private suspend fun List<BookEpisode>.withIsDownloaded() = coroutineScope {
-//        map { bookEpisode ->
-//            withContext(Dispatchers.IO) {
-//                async {
-//                    val downloadManager = downloadManagerHelper.getDownloadManager()
-//                    val download = downloadManager.downloadIndex.getDownload(bookEpisode.url)
-//                    bookEpisode.copy(
-//                        isDownloaded = download != null && download.state == Download.STATE_COMPLETED
-//                    )
-//                }
-//            }
-//        }.awaitAll()
-//    }
 
     private fun EpisodeEmbeddedEntity.getMetadataDurationBlocking(): Long? {
         val retriever = MediaMetadataRetriever()

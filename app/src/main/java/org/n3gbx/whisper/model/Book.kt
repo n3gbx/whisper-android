@@ -1,6 +1,6 @@
 package org.n3gbx.whisper.model
 
-import org.n3gbx.whisper.Constants.UNSET_TIME
+import org.n3gbx.whisper.core.Constants.UNSET_TIME
 import kotlin.math.roundToInt
 
 data class Book(
