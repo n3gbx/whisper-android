@@ -8,9 +8,9 @@ data class BookEmbeddedEntity(
     val book: BookEntity,
 
     @Relation(
-        entity = BookEpisodeEntity::class,
-        parentColumn = "id",
-        entityColumn = "bookId"
+        entity = EpisodeEntity::class,
+        parentColumn = "id_localId",
+        entityColumn = "bookId_localId",
     )
-    val episodes: List<BookEpisodeEmbeddedEntity>
+    val episodes: List<EpisodeEmbeddedEntity>
 )

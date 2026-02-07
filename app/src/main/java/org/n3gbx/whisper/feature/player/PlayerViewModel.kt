@@ -11,11 +11,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Player.EVENT_IS_PLAYING_CHANGED
 import androidx.media3.common.Player.EVENT_MEDIA_ITEM_TRANSITION
 import androidx.media3.common.Player.EVENT_POSITION_DISCONTINUITY
 import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
@@ -36,21 +38,26 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import org.n3gbx.whisper.data.BookRepository
+import org.n3gbx.whisper.data.EpisodeRepository
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.BACKWARD
 import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.FORWARD
 import org.n3gbx.whisper.model.Book
-import org.n3gbx.whisper.model.BookEpisode
+import org.n3gbx.whisper.model.DownloadState
+import org.n3gbx.whisper.model.Episode
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
 import org.n3gbx.whisper.platform.PlayerPlaybackService
 import org.n3gbx.whisper.platform.PlayerPlaybackService.CustomCommand.CANCEL_SLEEP_TIMER
 import org.n3gbx.whisper.platform.PlayerPlaybackService.CustomCommand.START_SLEEP_TIMER
+import org.n3gbx.whisper.utils.EpisodeDownloadManager
 import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val bookRepository: BookRepository,
+    private val episodeRepository: EpisodeRepository,
+    private val episodeDownloadManager: EpisodeDownloadManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     private var currentBookId: Identifier? = null
@@ -166,10 +173,43 @@ class PlayerViewModel @Inject constructor(
     fun onEpisodeClick(index: Int) {
         if (_uiState.value.book?.recentEpisodeIndex != index) {
             if (_uiState.getEpisodeByIndex(index)?.isFinished == true) {
-                controller.seekTo(index, 0)
+                controller.seekTo(index, 0) // start over if finished
             } else {
                 val time = _uiState.getEpisodeCachedPlaybackPositionByIndex(index)
-                controller.seekTo(index, time)
+                controller.seekTo(index, time) // resume on where left off
+            }
+        }
+    }
+
+    fun onEpisodeDownloadClick(index: Int) {
+        _uiState.getEpisodeByIndex(index)?.let { episode ->
+            viewModelScope.launch {
+                val isCancellable =
+                    episode.download?.state == DownloadState.QUEUED ||
+                        episode.download?.state == DownloadState.PROGRESSING
+
+                val episodeLocalId = episode.id.localId
+
+                when {
+                    episode.download == null -> {
+                        val workId = episodeDownloadManager.enqueueDownload(
+                            bookLocalId = episode.bookId.localId,
+                            episodeLocalId = episode.id.localId,
+                            episodeUrl = episode.url,
+                        )
+                        episodeRepository.markEpisodeDownloadQueued(
+                            workId = workId.toString(),
+                            episodeLocalId = episodeLocalId,
+                        )
+                    }
+                    isCancellable -> {
+                        val workId = episodeRepository.getEpisodeDownloadWorkId(episodeLocalId = episodeLocalId)
+                        if (workId != null) {
+                            episodeDownloadManager.cancelDownload(workId)
+                            episodeRepository.clearEpisodeDownload(episodeLocalId = episodeLocalId)
+                        }
+                    }
+                }
             }
         }
     }
@@ -188,9 +228,9 @@ class PlayerViewModel @Inject constructor(
     ) {
         currentBookId?.let { bookId ->
             if (currentTime != C.TIME_UNSET && externalEpisodeId != null) {
-                bookRepository.updateBookEpisodeProgress(
-                    externalBookId = bookId.externalId,
-                    externalEpisodeId = externalEpisodeId,
+                episodeRepository.updateEpisodeProgress(
+                    bookExternalId = bookId.externalId,
+                    episodeExternalId = externalEpisodeId,
                     currentTime = currentTime
                 )
             }
@@ -268,12 +308,12 @@ class PlayerViewModel @Inject constructor(
                         val book = result.data
 
                         if (book == null) {
-                            navigateBackWithMessage("Not a valid book identifier")
+                            navigateBackWithMessage("Invalid book identifier")
                         } else {
                             if (controller.currentMediaItem == null || currentBookId != bookId) {
                                 val mediaItems = book.episodesAsMediaItems()
                                 val currentIndex = book.recentEpisodeIndex
-                                val currentTime = book.recentEpisode.progress.lastTime
+                                val currentTime = book.recentEpisode.progress.time
 
                                 controller.stop()
                                 controller.clearMediaItems()
@@ -305,6 +345,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             _uiEvents.emit(PlayerUiEvent.NavigateBack)
             _uiEvents.emit(PlayerUiEvent.ShowMessage(message))
+            onMiniPlayerDismissButtonClicked()
         }
     }
 
@@ -375,18 +416,18 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun MutableStateFlow<PlayerUiState>.getCurrentEpisodeCachedPlaybackPosition(): Long {
-        return value.book?.recentEpisode?.progress?.lastTime ?: 0
+        return value.book?.recentEpisode?.progress?.time ?: 0
     }
 
     private fun MutableStateFlow<PlayerUiState>.getEpisodeCachedPlaybackPositionByIndex(index: Int): Long {
-        return value.book?.episodes?.getOrNull(index)?.progress?.lastTime ?: 0
+        return value.book?.episodes?.getOrNull(index)?.progress?.time ?: 0
     }
 
-    private fun MutableStateFlow<PlayerUiState>.getEpisodeByIndex(index: Int): BookEpisode? {
+    private fun MutableStateFlow<PlayerUiState>.getEpisodeByIndex(index: Int): Episode? {
         return value.book?.episodes?.getOrNull(index)
     }
 
-    private fun MutableStateFlow<PlayerUiState>.getEpisodeByExternalId(id: String?): BookEpisode? {
+    private fun MutableStateFlow<PlayerUiState>.getEpisodeByExternalId(id: String?): Episode? {
         return value.book?.episodes?.find { it.id.externalId == id }
     }
 
@@ -423,7 +464,10 @@ class PlayerViewModel @Inject constructor(
                 }
             }
 
-            _uiState.getEpisodeByExternalId(mediaItem?.mediaId)?.let { newEpisode ->
+            val newEpisode = _uiState.getEpisodeByExternalId(mediaItem?.mediaId)
+            if (newEpisode?.hasError == true) {
+                onEpisodeClick(controller.nextMediaItemIndex)
+            } else if (newEpisode != null) {
                 _uiState.update {
                     it.copy(
                         book = it.book?.copy(
@@ -444,6 +488,17 @@ class PlayerViewModel @Inject constructor(
             _uiState.update {
                 it.copy(isPlaying = isPlaying)
             }
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            val message = when (val cause = error.cause) {
+                is HttpDataSource.InvalidResponseCodeException ->
+                    "Server error (${cause.responseCode})"
+                else ->
+                    "Playback failed"
+            }
+
+            navigateBackWithMessage(message)
         }
     }
 

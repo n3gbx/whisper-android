@@ -85,6 +85,8 @@ dependencies {
     implementation(libs.google.accompanist.permissions)
     implementation(libs.androidx.material.icons)
 
+    implementation(libs.androidx.work.runtime.ktx)
+
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.androidx.datastore.preferences)
@@ -92,6 +94,7 @@ dependencies {
 
     implementation(libs.dagger.hilt.core)
     implementation(libs.hilt.navigation)
+    implementation(libs.hilt.work)
     ksp(libs.dagger.hilt.compiler)
     ksp(libs.hilt.compiler)
 
@@ -112,6 +115,7 @@ dependencies {
 
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media3.datasource.cronet)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.common)
     implementation(libs.androidx.media3.common.ktx)

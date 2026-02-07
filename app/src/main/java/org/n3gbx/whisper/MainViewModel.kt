@@ -6,19 +6,31 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.n3gbx.whisper.data.EpisodeRepository
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
-class MainViewModel @Inject constructor() : ViewModel() {
+class MainViewModel @Inject constructor(
+    private val episodeRepository: EpisodeRepository,
+) : ViewModel() {
 
-    private val mutableStateFlow = MutableStateFlow(true)
-    val isLoading = mutableStateFlow.asStateFlow()
-
-    init {
+    fun reconcileDownloadedEpisodeFiles() {
         viewModelScope.launch {
-            delay(1000)
-            mutableStateFlow.value = false
+            val episodes = episodeRepository.getDownloadedEpisodes().first()
+
+            episodes.forEach { episode ->
+                val localPath = episode.episode.localPath
+
+                if (localPath != null) {
+                    val file = File(localPath)
+                    if (!file.exists()) {
+                        episodeRepository.clearEpisodeLocalPath(episode.episode.localId)
+                    }
+                }
+            }
         }
     }
 }

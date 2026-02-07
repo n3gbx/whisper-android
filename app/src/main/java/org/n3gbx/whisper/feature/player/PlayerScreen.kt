@@ -53,15 +53,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import org.n3gbx.whisper.model.BookEpisode
+import org.n3gbx.whisper.R
+import org.n3gbx.whisper.model.DownloadState
+import org.n3gbx.whisper.model.Episode
+import org.n3gbx.whisper.model.EpisodeDownload
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.ProgressType
 import org.n3gbx.whisper.ui.common.components.BookmarkIcon
@@ -69,6 +74,7 @@ import org.n3gbx.whisper.ui.common.components.DropdownMenuBox
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 import org.n3gbx.whisper.ui.utils.convertToTime
 import org.n3gbx.whisper.ui.utils.toolbarColors
+import org.n3gbx.whisper.utils.applyIf
 
 @Composable
 fun PlayerScreen(
@@ -106,6 +112,7 @@ fun PlayerScreen(
         onSliderValueChangeFinished = viewModel::onSliderValueChangeFinished,
         onBookmarkButtonClick = viewModel::onBookmarkButtonClick,
         onEpisodeClick = viewModel::onEpisodeClick,
+        onEpisodeDownloadClick = viewModel::onEpisodeDownloadClick,
         onDescriptionButtonClick = viewModel::onDescriptionButtonClick,
         onSpeedOptionChange = viewModel::onSpeedOptionChange,
         onSleepTimerOptionChange = viewModel::onSleepTimerOptionChange,
@@ -126,6 +133,7 @@ private fun PlayerContent(
     onDescriptionButtonClick: () -> Unit = {},
     onBookmarkButtonClick: () -> Unit = {},
     onEpisodeClick: (Int) -> Unit = {},
+    onEpisodeDownloadClick: (Int) -> Unit = {},
     onSpeedOptionChange: (SpeedOption) -> Unit = {},
     onSleepTimerOptionChange: (SleepTimerOption?) -> Unit = {},
     onBackButtonClick: () -> Unit = {}
@@ -187,7 +195,8 @@ private fun PlayerContent(
             Episodes(
                 recentEpisodeIndex = uiState.book?.recentEpisodeIndex,
                 episodes = uiState.book?.episodes,
-                onEpisodeClick = onEpisodeClick
+                onEpisodeClick = onEpisodeClick,
+                onEpisodeDownloadClick = onEpisodeDownloadClick
             )
         }
 
@@ -324,8 +333,9 @@ private fun Cover(
 private fun Episodes(
     modifier: Modifier = Modifier,
     recentEpisodeIndex: Int?,
-    episodes: List<BookEpisode>?,
-    onEpisodeClick: (Int) -> Unit
+    episodes: List<Episode>?,
+    onEpisodeClick: (Int) -> Unit,
+    onEpisodeDownloadClick: (Int) -> Unit
 ) {
     if (episodes != null && recentEpisodeIndex != null) {
         Column(
@@ -341,53 +351,173 @@ private fun Episodes(
             ) {
                 episodes.forEachIndexed { index, episode ->
                     key(episode.id.externalId) {
-                        val color =
-                            if (index == recentEpisodeIndex) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurface
-
-                        val subtitle =
-                            when (episode.progressType) {
-                                ProgressType.FINISHED -> "Finished"
-                                ProgressType.STARTED -> "Started (${episode.progressPercentage}%)"
-                                ProgressType.NOT_STARTED -> "Not started"
-                            }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
-                                .clickable { onEpisodeClick(index) },
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "${index + 1}.",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = color
-                            )
-                            Column(
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text(
-                                    text = episode.title,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = color,
-                                    overflow = TextOverflow.Ellipsis,
-                                    maxLines = 1,
-                                )
-                                Text(
-                                    text = subtitle,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            }
-                            Text(
-                                text = episode.duration.convertToTime(),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
+                        Episode(
+                            episode = episode,
+                            position = index + 1,
+                            isRecent = index == recentEpisodeIndex,
+                            onClick = { onEpisodeClick(index) },
+                            onDownloadClick = { onEpisodeDownloadClick(index) },
+                        )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Episode(
+    episode: Episode,
+    position: Int,
+    isRecent: Boolean,
+    onClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+) {
+    val duration = remember(episode) { episode.duration.convertToTime() }
+
+    val color =
+        if (isRecent && !episode.hasError) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.onSurface
+
+    val subtitle =
+        when (episode.progressType) {
+            ProgressType.FINISHED -> "Finished"
+            ProgressType.STARTED -> "Started (${episode.progressPercentage}%)"
+            ProgressType.NOT_STARTED -> "Not started"
+        }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .alpha(if (episode.hasError) 0.3f else 1f)
+            .applyIf(!episode.hasError) {
+                clickable { onClick() }
+            },
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "$position.",
+            style = MaterialTheme.typography.titleSmall,
+            color = color,
+        )
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+            Text(
+                text = episode.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = color,
+                overflow = TextOverflow.Ellipsis,
+                maxLines = 1,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = duration,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (episode.hasError) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_error),
+                    tint = MaterialTheme.colorScheme.primary,
+                    contentDescription = null,
+                )
+            } else {
+                if (episode.localPath == null) {
+                    EpisodeDownloadButton(
+                        download = episode.download,
+                        onClick = onDownloadClick,
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_downloaded),
+                        tint = MaterialTheme.colorScheme.primary,
+                        contentDescription = null,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EpisodeDownloadButton(
+    download: EpisodeDownload?,
+    onClick: () -> Unit,
+) {
+    CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
+        when {
+            download == null || download.state == DownloadState.IDLE -> {
+                IconButton(
+                    modifier = Modifier.size(24.dp),
+                    enabled = download?.state != DownloadState.IDLE,
+                    onClick = onClick,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_download),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        contentDescription = null,
+                    )
+                }
+            }
+            download.state == DownloadState.QUEUED -> {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable(onClick = onClick),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        strokeWidth = 2.dp,
+                    )
+                    Icon(
+                        modifier = Modifier.size(14.dp),
+                        painter = painterResource(R.drawable.ic_stop),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        contentDescription = null,
+                    )
+                }
+            }
+            download.state == DownloadState.PROGRESSING -> {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable(onClick = onClick),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        progress = { download.progress.toFloat() / 100f },
+                        color = MaterialTheme.colorScheme.onSurface,
+                        strokeWidth = 2.dp,
+                    )
+                    Icon(
+                        modifier = Modifier.size(14.dp),
+                        painter = painterResource(R.drawable.ic_stop),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        contentDescription = null,
+                    )
+                }
+            }
+            download.state == DownloadState.FAILED -> {
+                Icon(
+                    painter = painterResource(R.drawable.ic_error),
+                    tint = MaterialTheme.colorScheme.error,
+                    contentDescription = null,
+                )
             }
         }
     }

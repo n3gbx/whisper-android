@@ -1,21 +1,24 @@
 package org.n3gbx.whisper.database.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalUuidApi::class)
 @Entity(
     tableName = "book",
     indices = [
-        Index(value = ["externalId"], unique = true)
+        Index(value = ["id_externalId"], unique = true)
     ]
 )
 data class BookEntity (
-    @PrimaryKey val id: String = Uuid.random().toString(),
+    @PrimaryKey
+    @ColumnInfo(name = "id_localId")
+    val localId: String,
+
+    @ColumnInfo(name = "id_externalId")
     val externalId: String,
+
     val title: String,
     val author: String,
     val narrator: String?,
@@ -25,7 +28,9 @@ data class BookEntity (
 ) {
 
     class Update(
-        val id: String,
+        @ColumnInfo(name = "id_localId")
+        val localId: String,
+
         val isBookmarked: Boolean
     )
 }

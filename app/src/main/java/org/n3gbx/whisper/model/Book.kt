@@ -11,8 +11,8 @@ data class Book(
     val coverUrl: String?,
     val description: String?,
     val isBookmarked: Boolean,
-    val recentEpisode: BookEpisode,
-    val episodes: List<BookEpisode>
+    val recentEpisode: Episode,
+    val episodes: List<Episode>
 ) {
     val isFinished: Boolean
         get() = episodes.all { it.isFinished }

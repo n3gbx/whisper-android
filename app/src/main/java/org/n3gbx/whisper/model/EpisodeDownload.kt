@@ -2,9 +2,10 @@ package org.n3gbx.whisper.model
 
 import java.time.LocalDateTime
 
-data class BookEpisodeProgress(
-    val id: String,
+data class EpisodeDownload(
     val episodeId: Identifier,
-    val lastTime: Long,
+    val workId: String?,
+    val progress: Int,
+    val state: DownloadState,
     val lastUpdatedAt: LocalDateTime
 )

@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -62,10 +63,14 @@ import org.n3gbx.whisper.ui.utils.LocalHazeState
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val mainViewModel by viewModels<MainViewModel>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        mainViewModel.reconcileDownloadedEpisodeFiles()
 
         setContent {
             WhisperTheme {

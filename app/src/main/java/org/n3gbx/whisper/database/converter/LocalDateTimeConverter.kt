@@ -16,16 +16,3 @@ class LocalDateTimeConverter {
         return input?.toString()
     }
 }
-
-class LocalDateConverter {
-
-    @TypeConverter
-    fun stringToLocalDate(input: String?): LocalDate? {
-        return input?.let { LocalDate.parse(input) }
-    }
-
-    @TypeConverter
-    fun localDateToString(input: LocalDate?): String? {
-        return input?.toString()
-    }
-}

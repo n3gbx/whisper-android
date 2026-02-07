@@ -12,7 +12,7 @@ import org.n3gbx.whisper.model.Result
 class NetworkBoundResource @Inject constructor() {
 
     inline operator fun <QueryResult, FetchResult> invoke(
-        crossinline query: () -> Flow<QueryResult>,
+        crossinline query: suspend () -> Flow<QueryResult>,
         crossinline fetch: suspend () -> FetchResult,
         crossinline saveFetched: suspend (FetchResult, QueryResult?) -> Unit,
         crossinline shouldFetch: (currentData: QueryResult?) -> Boolean,
