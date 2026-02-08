@@ -472,7 +472,7 @@ class PlayerViewModel @Inject constructor(
         return episodes.map { episode ->
             MediaItem.Builder()
                 .setMediaId(episode.title)
-                .setUri(episode.url)
+                .setUri(episode.localPath ?: episode.url)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setComposer(narrator)
@@ -570,10 +570,12 @@ class PlayerViewModel @Inject constructor(
                     val localPath = state.book.recentEpisode.localPath
                     val localFile = localPath?.let { File(it) }
 
-                    when {
-                        localFile != null && localFile.exists() -> PlaybackSource.Resolved(localFile.toUri())
-                        isConnected -> PlaybackSource.Resolved(Uri.parse(episode.url))
-                        else -> PlaybackSource.Unresolved
+                    if (localFile != null && localFile.exists()) {
+                        PlaybackSource.Resolved(localFile.toUri())
+                    } else if (isConnected) {
+                        PlaybackSource.Resolved(Uri.parse(episode.url))
+                    } else {
+                        PlaybackSource.Unresolved
                     }
                 } else {
                     null
