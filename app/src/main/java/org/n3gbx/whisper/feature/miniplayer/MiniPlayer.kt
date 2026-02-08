@@ -102,7 +102,7 @@ fun MiniPlayer(
                             isPlaying = uiState.isPlaying,
                             isLoading = uiState.isBuffering,
                             onPlayPauseClick = playerViewModel::onPlayPauseButtonClick,
-                            onDismissClick = playerViewModel::onMiniPlayerDismissButtonClicked
+                            onDismiss = playerViewModel::onMiniPlayerDismiss
                         )
                     }
                     ProgressIndicator(
@@ -181,7 +181,7 @@ private fun RowScope.Controls(
     isPlaying: Boolean,
     isLoading: Boolean,
     onPlayPauseClick: () -> Unit,
-    onDismissClick: () -> Unit,
+    onDismiss: () -> Unit,
 ) {
     CompositionLocalProvider(
         LocalMinimumInteractiveComponentEnforcement provides false,
@@ -208,7 +208,7 @@ private fun RowScope.Controls(
 
             }
             IconButton(
-                onClick = onDismissClick
+                onClick = onDismiss
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,

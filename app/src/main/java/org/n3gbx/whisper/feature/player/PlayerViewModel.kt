@@ -6,7 +6,6 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
@@ -48,13 +47,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.yield
 import org.n3gbx.whisper.data.BookRepository
 import org.n3gbx.whisper.data.EpisodeRepository
-import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.BACKWARD
-import org.n3gbx.whisper.feature.player.PlayerViewModel.RewindAction.FORWARD
 import org.n3gbx.whisper.model.Book
-import org.n3gbx.whisper.model.DownloadState
+import org.n3gbx.whisper.model.DownloadState.QUEUED
+import org.n3gbx.whisper.model.DownloadState.PROGRESSING
 import org.n3gbx.whisper.model.Episode
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
@@ -74,51 +71,22 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
-    private val savedStateHandle: SavedStateHandle,
+    @ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val bookRepository: BookRepository,
     private val episodeRepository: EpisodeRepository,
     private val episodeDownloadManager: EpisodeDownloadManager,
     private val isConnectedToInternetFlow: IsConnectedToInternet,
-    @ApplicationContext private val context: Context
 ) : ViewModel() {
-    private var currentBookId: Identifier? = null
-    private var bookJob: Job? = null
-    private val rewindTimeMs = 10000L
-    private val rewindActions = MutableSharedFlow<RewindAction>()
-    private var pendingSliderValue: Float? = null
-    private var isSliderValueChangePending: Boolean = false
 
     private lateinit var controller: MediaController
+    private var currentBookId: Identifier? = null
+    private var bookJob: Job? = null
+    private var pendingSliderValue: Float? = null
+    private var isSliderValueChangePending: Boolean = false
+    private var isAutoPlayPending: Boolean = false
 
-    private val isAutoDownloadEnabledState = combine(
-        context.connectionTypeFlow(),
-        settingsRepository.getAutoDownloadSetting(),
-        settingsRepository.getDownloadWifiOnlySetting(),
-    ) { connectionType, isEnabled, isWifiOnly ->
-        if (isWifiOnly) connectionType == WIFI && isEnabled
-        else connectionType != NONE && isEnabled
-    }
-        .onEach { Timber.tag(LOG_TAG).d("isAutoDownloadEnabledState: %s", it) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = false,
-        )
-
-    private val isDownloadEnabledState = combine(
-        context.connectionTypeFlow(),
-        settingsRepository.getDownloadWifiOnlySetting(),
-    ) { connectionType, isWifiOnly ->
-        if (isWifiOnly) connectionType == WIFI
-        else connectionType != NONE
-    }
-        .onEach { Timber.tag(LOG_TAG).d("isDownloadEnabledState: %s", it) }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = false,
-        )
+    private val rewindEvents = MutableSharedFlow<RewindEvent>()
 
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
@@ -126,80 +94,89 @@ class PlayerViewModel @Inject constructor(
     private val _uiEvents = MutableSharedFlow<PlayerUiEvent>()
     val uiEvents: SharedFlow<PlayerUiEvent> = _uiEvents.asSharedFlow()
 
-    private val autoPlayReadinessTrigger =
-        _uiState
-            .map { !it.isLoading && !it.isBuffering }
-            .distinctUntilChanged()
-            .filter { it }
-            .onEach { Timber.tag(LOG_TAG).d("autoPlayTrigger: %s", it) }
-            .map { Unit }
+    /**
+     * Whether auto download is enabled by settings constraints
+     */
+    private val isAutoDownloadEnabledState =
+        combine(
+            context.connectionTypeFlow(),
+            settingsRepository.getAutoDownloadSetting(),
+            settingsRepository.getDownloadWifiOnlySetting(),
+        ) { connectionType, isEnabled, isWifiOnly ->
+            if (isWifiOnly) connectionType == WIFI && isEnabled
+            else connectionType != NONE && isEnabled
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /**
+     * Whether download is enabled by settings constraints
+     */
+    private val isDownloadEnabledState =
+        combine(
+            context.connectionTypeFlow(),
+            settingsRepository.getDownloadWifiOnlySetting(),
+        ) { connectionType, isWifiOnly ->
+            if (isWifiOnly) connectionType == WIFI
+            else connectionType != NONE
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     init {
         initController()
-        observeAutoPlayTrigger()
         observeAutoDownload()
         observePlaybackSource()
     }
 
     fun setBook(bookId: Identifier?) {
-        Timber.tag(LOG_TAG).d("setBook: %s", bookId)
-
         if (::controller.isInitialized && bookId != null && currentBookId != bookId) {
             observeBook(bookId)
         }
     }
 
+    /**
+     * Update uiState playback speed, send uiEvent message, and set controller playback speed
+     */
     fun onSpeedOptionChange(speedOption: SpeedOption) {
-        Timber.tag(LOG_TAG).d("onSpeedOptionChange: %s", speedOption)
+        _uiState.updateSpeedOption(speedOption)
+        _uiEvents.sendMessage("Speed set: ${speedOption.label}")
 
-        _uiState.update {
-            it.copy(selectedSpeedOption = speedOption)
-        }
         controller.setPlaybackSpeed(speedOption.value)
-        sendMessageEvent("Speed set: ${speedOption.label}")
     }
 
+    /**
+     * Update uiState sleep timer, send uiEvent message, and send custom sleep timer command to controller
+     */
     fun onSleepTimerOptionChange(sleepTimerOption: SleepTimerOption?) {
-        _uiState.update {
-            it.copy(selectedSleepTimerOption = sleepTimerOption)
-        }
+        _uiState.updateSleepTimer(sleepTimerOption)
 
         if (sleepTimerOption != null) {
             val commandExtras = Bundle().apply { putLong("duration", sleepTimerOption.value) }
-
-            controller.sendCustomCommand(
-                SessionCommand(START_SLEEP_TIMER.name, commandExtras),
-                Bundle.EMPTY
-            )
-            sendMessageEvent("Sleep timer set: ${sleepTimerOption.label}")
+            val customCommand = SessionCommand(START_SLEEP_TIMER.name, commandExtras)
+            controller.sendCustomCommand(customCommand, Bundle.EMPTY)
+            _uiEvents.sendMessage("Sleep timer set: ${sleepTimerOption.label}")
         } else {
-            controller.sendCustomCommand(
-                SessionCommand(CANCEL_SLEEP_TIMER.name, Bundle.EMPTY),
-                Bundle.EMPTY
-            )
-            sendMessageEvent("Sleep timer cancelled")
+            val customCommand = SessionCommand(CANCEL_SLEEP_TIMER.name, Bundle.EMPTY)
+            controller.sendCustomCommand(customCommand, Bundle.EMPTY)
+            _uiEvents.sendMessage("Sleep timer cancelled")
         }
     }
 
+    /**
+     * Update uiState description visibility to true
+     */
     fun onDescriptionButtonClick() {
-        Timber.tag(LOG_TAG).d("onDescriptionButtonClick")
-
-        _uiState.update {
-            it.copy(showDescription = true)
-        }
+        _uiState.updateDescriptionVisibility(true)
     }
 
+    /**
+     * Update uiState description visibility to false
+     */
     fun onDescriptionDismiss() {
-        Timber.tag(LOG_TAG).d("onDescriptionDismiss")
-
-        _uiState.update {
-            it.copy(showDescription = false)
-        }
+        _uiState.updateDescriptionVisibility(false)
     }
 
+    /**
+     * Call controller play/pause methods depending on controller playback state
+     */
     fun onPlayPauseButtonClick() {
-        Timber.tag(LOG_TAG).d("onPlayPauseButtonClick: isPlaying=%s", controller.isPlaying)
-
         if (controller.isPlaying) {
             controller.pause()
         } else {
@@ -207,48 +184,52 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun onMiniPlayerDismissButtonClicked() {
-        Timber.tag(LOG_TAG).d("Reset player")
+    /**
+     * Stop controller, clear media items, nullify book, and reset uiState
+     */
+    fun onMiniPlayerDismiss() {
         controller.pause()
         controller.stop()
         controller.clearMediaItems()
 
-        Timber.tag(LOG_TAG).d("Reset book: %s", currentBookId)
         currentBookId = null
         bookJob?.cancel()
 
-        Timber.tag(LOG_TAG).d("Reset ui state")
         _uiState.update { PlayerUiState() }
     }
 
+    /**
+     * Send Backward rewind local event
+     */
     fun onRewindBackwardButtonClick() {
-        Timber.tag(LOG_TAG).d("onRewindBackwardButtonClick")
-
         viewModelScope.launch {
-            rewindActions.emit(BACKWARD)
+            rewindEvents.emit(RewindEvent.Backward)
         }
     }
 
+    /**
+     * Send Forward rewind local event
+     */
     fun onRewindForwardButtonClick() {
-        Timber.tag(LOG_TAG).d("onRewindForwardButtonClick")
-
         viewModelScope.launch {
-            rewindActions.emit(FORWARD)
+            rewindEvents.emit(RewindEvent.Forward)
         }
     }
 
+    /**
+     * Update uiState and pending slider value
+     */
     fun onSliderValueChange(value: Float) {
-        Timber.tag(LOG_TAG).d("onSliderValueChange: %s", value)
-
         isSliderValueChangePending = true
         pendingSliderValue = value
 
         _uiState.updateSliderValue(value)
     }
 
-    fun onSliderValueChangeFinished() {
-        Timber.tag(LOG_TAG).d("onSliderValueChangeFinished: pendingSliderValue=%s", pendingSliderValue)
-
+    /**
+     * Update controller position with pending slider value if not null
+     */
+    fun onSliderValueChangeFinish() {
         val value = pendingSliderValue ?: return
         pendingSliderValue = null
         isSliderValueChangePending = false
@@ -256,70 +237,71 @@ class PlayerViewModel @Inject constructor(
         controller.seekTo(value.toLong())
     }
 
+    /**
+     * Update controller position to either start or cached playback position depending on episode index and playback state
+     */
     fun onEpisodeClick(index: Int) {
         val isLoading = _uiState.value.isLoading
         val isBuffering = _uiState.value.isBuffering
         val isSameEpisode = _uiState.value.book?.recentEpisodeIndex == index
 
-        Timber.tag(LOG_TAG).d("onEpisodeClick: isLoading=%s, isBuffering=%s, isSameEpisode=%s", isLoading, isBuffering, isSameEpisode)
-
         if (isLoading || isBuffering) return
 
-        if (_uiState.getEpisodeByIndex(index)?.isFinished == true && isSameEpisode) {
-            Timber.tag(LOG_TAG).d("Start episode at: 0")
+        val isEpisodeFinished = _uiState.getEpisodeByIndex(index)?.isFinished == true
+
+        if (isEpisodeFinished && isSameEpisode) {
             controller.seekTo(index, 0)
         } else if (!isSameEpisode) {
             val time = _uiState.getEpisodeCachedPlaybackPositionByIndex(index)
-            Timber.tag(LOG_TAG).d("Resume episode at: %s", time)
             controller.seekTo(index, time)
         }
     }
 
+    /**
+     * Download episode if download is enabled by settings constraints otherwise send uiEvent message
+     */
     fun onEpisodeDownloadClick(index: Int) {
         if (isDownloadEnabledState.value) {
             _uiState.getEpisodeByIndex(index)?.let {
                 downloadEpisode(it)
             }
         } else {
-            sendMessageEvent("Download is disabled by settings constraints")
+            _uiEvents.sendMessage("Download is disabled by settings constraints")
         }
     }
 
+    /**
+     * Update database book bookmark if currentBookId is not null
+     */
     fun onBookmarkButtonClick() {
         currentBookId?.let { bookId ->
-            Timber.tag(LOG_TAG).d("onBookmarkButtonClick: bookId=%s", bookId)
-
             viewModelScope.launch {
                 bookRepository.updateBookBookmark(bookId)
             }
         }
     }
 
-    private suspend fun saveEpisodePlaybackProgress(
-        externalEpisodeId: String?,
-        currentTime: Long
-    ) {
+    /**
+     * Save episode playback progress to database if currentBookId is not null
+     */
+    private suspend fun saveEpisodePlaybackProgress(externalEpisodeId: String?, currentTime: Long) {
         currentBookId?.let { bookId ->
             if (currentTime != C.TIME_UNSET && externalEpisodeId != null) {
-                Timber.tag(LOG_TAG).d("Save progress: externalEpisodeId=%s, currentTime=%s", externalEpisodeId, currentTime)
-
                 episodeRepository.updateEpisodeProgress(
                     bookExternalId = bookId.externalId,
                     episodeExternalId = externalEpisodeId,
-                    currentTime = currentTime
+                    currentTime = currentTime,
                 )
             }
         }
     }
 
+    /**
+     * Download episode to cache
+     */
     private fun downloadEpisode(episode: Episode) {
         viewModelScope.launch {
-            Timber.tag(LOG_TAG).d("downloadEpisode: episodeId=%s", episode.id)
-
-            val isCancellable =
-                episode.download?.state == DownloadState.QUEUED ||
-                        episode.download?.state == DownloadState.PROGRESSING
-
+            val isCancellable = episode.download?.state == QUEUED || episode.download?.state == PROGRESSING
             val episodeLocalId = episode.id.localId
 
             when {
@@ -345,7 +327,10 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun observePlaybackPositionForPositionCache() {
+    /**
+     * Save episode playback progress every 30s
+     */
+    private fun observePlaybackPositionForProgressCache() {
         viewModelScope.launch {
             while (isActive) {
                 delay(30_000)
@@ -353,46 +338,40 @@ class PlayerViewModel @Inject constructor(
                 val episodeId = controller.currentMediaItem?.mediaId
                 val currentTime = controller.currentPosition
 
-                episodeId?.let {
-                    saveEpisodePlaybackProgress(episodeId, currentTime)
-                }
+                saveEpisodePlaybackProgress(episodeId, currentTime)
             }
         }
     }
 
+    /**
+     * Update uiState slider value and current time every 250ms if distinct
+     */
     private fun observePlaybackPositionForStateUpdate() {
         viewModelScope.launch {
             while (isActive) {
                 delay(250)
-                controller.duration.also { duration ->
-                    if (duration != C.TIME_UNSET) {
-                        if (_uiState.value.duration != duration) {
-                            _uiState.updateDuration(duration)
-                        }
 
-                        controller.currentPosition.also { currentPosition ->
-                            if (_uiState.value.currentTime != currentPosition && !isSliderValueChangePending) {
-                                _uiState.updateSliderValueAndCurrentTime(currentPosition.toFloat())
-                            }
-                        }
-                    }
+                val position = controller.currentPosition
+                if (!isSliderValueChangePending && _uiState.value.currentTime != position) {
+                    _uiState.updateSliderValueAndCurrentTime(position.toFloat())
                 }
             }
         }
     }
 
+    /**
+     * Update controller position with accumulated rewind time
+     */
     private fun observeRewindActionsForPlaybackPositionUpdate() {
         viewModelScope.launch {
             var accumulatedDelta = 0L
-            rewindActions
-                .onEach { _ -> accumulatedDelta += rewindTimeMs }
+            rewindEvents
+                .onEach { accumulatedDelta += it.rewindTimeMs }
                 .debounce(300)
-                .collect { rewindAction ->
-                    Timber.tag(LOG_TAG).d("observeRewindActionsForPlaybackPositionUpdate: %s", rewindAction)
-
-                    val newPosition = when (rewindAction) {
-                        BACKWARD -> controller.currentPosition - accumulatedDelta
-                        FORWARD -> controller.currentPosition + accumulatedDelta
+                .collect {
+                    val newPosition = when (it) {
+                        RewindEvent.Backward -> controller.currentPosition - accumulatedDelta
+                        RewindEvent.Forward -> controller.currentPosition + accumulatedDelta
                     }.coerceIn(0, controller.duration)
 
                     controller.seekTo(newPosition)
@@ -403,36 +382,26 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun observeBook(bookId: Identifier) {
-        if (bookJob != null) {
-            Timber.tag(LOG_TAG).d("observeBook cancel bookJob: %s", currentBookId)
-            bookJob?.cancel()
-        }
-
+        bookJob?.cancel()
         bookJob = viewModelScope.launch {
             bookRepository.getBook(bookId).collect { result ->
-                Timber.tag(LOG_TAG).d("observeBook getBook result: %s", result)
-
                 when (result) {
                     is Result.Loading -> {
-                        _uiState.update {
-                            it.copy(isLoading = true)
-                        }
+                        _uiState.update { it.copy(isLoading = true) }
                     }
                     is Result.Success -> {
                         val book = result.data
 
                         if (book == null) {
-                            Timber.tag(LOG_TAG).d("observeBook invalid book: %s", bookId)
-                            navigateBackWithMessage("Invalid book identifier")
+                            navigateBackWithUiMessage("Invalid book identifier")
                         } else {
                             if (controller.currentMediaItem == null || currentBookId != bookId) {
-                                Timber.tag(LOG_TAG).d("observeBook prepare book: %s", bookId)
+                                updateIsAutoPlayPending(true)
 
                                 val mediaItems = book.episodesAsMediaItems()
                                 val currentIndex = book.recentEpisodeIndex
                                 val currentTime = book.recentEpisode.progress.time
 
-                                Timber.tag(LOG_TAG).d("observeBook load: size=%s, index=%s, time=%s", mediaItems.size, currentIndex, currentTime)
                                 controller.stop()
                                 controller.clearMediaItems()
                                 controller.setMediaItems(mediaItems, currentIndex, currentTime)
@@ -450,21 +419,12 @@ class PlayerViewModel @Inject constructor(
                                 )
                             }
 
-                            Timber.tag(LOG_TAG).d("observeBook loaded: %s", bookId)
                             currentBookId = bookId
                         }
                     }
                     else -> {}
                 }
             }
-        }
-    }
-
-    private fun navigateBackWithMessage(message: String) {
-        viewModelScope.launch {
-            _uiEvents.emit(PlayerUiEvent.NavigateBack)
-            _uiEvents.emit(PlayerUiEvent.ShowMessage(message))
-            onMiniPlayerDismissButtonClicked()
         }
     }
 
@@ -490,7 +450,7 @@ class PlayerViewModel @Inject constructor(
         val sessionToken = SessionToken(context, ComponentName(context, PlayerPlaybackService::class.java))
         val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
 
-        Timber.tag(LOG_TAG).d("Init controller sessionToken=%s", sessionToken.uid)
+        Timber.tag(LOG_TAG).d("Init controller started: sessionToken=%s", sessionToken.uid)
 
         controllerFuture.addListener(
             {
@@ -500,31 +460,16 @@ class PlayerViewModel @Inject constructor(
 
                     Timber.tag(LOG_TAG).d("Init controller finished")
 
-                    observePlaybackPositionForPositionCache()
+                    observePlaybackPositionForProgressCache()
                     observePlaybackPositionForStateUpdate()
                     observeRewindActionsForPlaybackPositionUpdate()
                 } catch (e: Exception) {
                     Timber.tag(LOG_TAG).d("Init controller failed %s", e.message)
-                    navigateBackWithMessage("Error while initialising player")
+                    navigateBackWithUiMessage("Error while initialising player")
                 }
             },
             ContextCompat.getMainExecutor(context)
         )
-    }
-
-    private fun observeAutoPlayTrigger() {
-        viewModelScope.launch {
-            autoPlayReadinessTrigger.collect {
-                if (settingsRepository.getAutoPlaySetting().first()) {
-                    getControllerIfInitialized()?.let {
-                        if (!it.isLoading && !it.isPlaying) {
-                            Timber.tag(LOG_TAG).d("Trigger auto play")
-                            it.play()
-                        }
-                    }
-                }
-            }
-        }
     }
 
     private fun observeAutoDownload() {
@@ -549,7 +494,6 @@ class PlayerViewModel @Inject constructor(
                     if (episodeId in processedEpisodes) processedEpisodes
                     else {
                         _uiState.getEpisodeByLocalId(episodeId)?.let {
-                            Timber.tag(LOG_TAG).d("observeAutoDownload: episodeId=%s", episodeId)
                             downloadEpisode(it)
                         }
                         processedEpisodes + episodeId
@@ -612,38 +556,53 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun sendMessageEvent(message: String) {
+    private fun updateIsAutoPlayPending(value: Boolean) {
+        this.isAutoPlayPending = value
+    }
+
+    private fun navigateBackWithUiMessage(message: String) {
         viewModelScope.launch {
+            _uiEvents.emit(PlayerUiEvent.NavigateBack)
             _uiEvents.emit(PlayerUiEvent.ShowMessage(message))
+            onMiniPlayerDismiss()
+        }
+    }
+
+    private fun MutableSharedFlow<PlayerUiEvent>.sendMessage(message: String) {
+        viewModelScope.launch {
+            emit(PlayerUiEvent.ShowMessage(message))
         }
     }
 
     private fun MutableStateFlow<PlayerUiState>.updateDuration(value: Long) {
         Timber.tag(LOG_TAG).d("updateDuration: %s", value)
-        update {
-            it.copy(duration = value)
-        }
+        update { it.copy(duration = value) }
     }
 
     private fun MutableStateFlow<PlayerUiState>.updateSliderValue(value: Float) {
         Timber.tag(LOG_TAG).d("updateSliderValue: %s", value)
-        update {
-            it.copy(sliderValue = value)
-        }
+        update { it.copy(sliderValue = value) }
     }
 
     private fun MutableStateFlow<PlayerUiState>.updateSliderValueAndCurrentTime(value: Float) {
         Timber.tag(LOG_TAG).d("updateSliderValueAndCurrentTime: %s", value)
-        update {
-            it.copy(
-                sliderValue = value,
-                currentTime = value.toLong()
-            )
-        }
+        update { it.copy(sliderValue = value, currentTime = value.toLong()) }
     }
 
-    private fun getControllerIfInitialized() =
-        if (this@PlayerViewModel::controller.isInitialized) controller else null
+    private fun MutableStateFlow<PlayerUiState>.updateSpeedOption(value: SpeedOption) {
+        Timber.tag(LOG_TAG).d("updateSpeedOption: %s", value)
+        update { it.copy(selectedSpeedOption = value) }
+    }
+
+    private fun MutableStateFlow<PlayerUiState>.updateSleepTimer(value: SleepTimerOption?) {
+        Timber.tag(LOG_TAG).d("updateSleepTimer: %s", value)
+        update { it.copy(selectedSleepTimerOption = value) }
+    }
+
+    private fun MutableStateFlow<PlayerUiState>.updateDescriptionVisibility(value: Boolean) {
+        Timber.tag(LOG_TAG).d("updateDescriptionVisibility: %s", value)
+        _uiState.update { it.copy(showDescription = value) }
+    }
 
     private fun MutableStateFlow<PlayerUiState>.getCurrentEpisodeCachedPlaybackPosition(): Long {
         return value.book?.recentEpisode?.progress?.time ?: 0
@@ -665,17 +624,15 @@ class PlayerViewModel @Inject constructor(
         return value.book?.episodes?.find { it.id.localId == id }
     }
 
+    private fun getControllerIfInitialized() =
+        if (this@PlayerViewModel::controller.isInitialized) controller else null
+
     inner class ControllerListener : Player.Listener {
         override fun onEvents(player: Player, events: Player.Events) {
-            Timber.tag(LOG_TAG).d(
-                "onEvents: %s",
-                buildList { repeat(events.size()) { index -> add(events[index]) } }.joinToString(";")
-            )
-
             val expectedEvents = listOf(
-                EVENT_IS_PLAYING_CHANGED, // playing/paused - 7
-                EVENT_POSITION_DISCONTINUITY, // seek/jump - 11
-                EVENT_MEDIA_ITEM_TRANSITION // new - 1
+                EVENT_IS_PLAYING_CHANGED, // playing/paused
+                EVENT_POSITION_DISCONTINUITY, // seek/jump
+                EVENT_MEDIA_ITEM_TRANSITION // new
             )
 
             if (events.containsAny(*expectedEvents.toIntArray())) {
@@ -684,6 +641,28 @@ class PlayerViewModel @Inject constructor(
                         externalEpisodeId = player.currentMediaItem?.mediaId,
                         currentTime = player.currentPosition
                     )
+                }
+            }
+        }
+
+        /**
+         * Update uiState duration when playback is ready
+         */
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_READY) {
+                controller.duration.also { duration ->
+                    if (duration != C.TIME_UNSET) {
+                        _uiState.updateDuration(duration)
+                    }
+                }
+
+                viewModelScope.launch {
+                    if (settingsRepository.getAutoPlaySetting().first()) {
+                        if (!controller.isPlaying && isAutoPlayPending) {
+                            controller.play()
+                            updateIsAutoPlayPending(false)
+                        }
+                    }
                 }
             }
         }
@@ -737,12 +716,15 @@ class PlayerViewModel @Inject constructor(
                 else -> "Playback failed: ${error.message}"
             }
 
-            navigateBackWithMessage(message)
+            navigateBackWithUiMessage(message)
         }
     }
 
-    private enum class RewindAction {
-        BACKWARD, FORWARD;
+    private sealed interface RewindEvent {
+        val rewindTimeMs: Long get() = 10_000
+
+        data object Forward : RewindEvent
+        data object Backward : RewindEvent
     }
 
     companion object {

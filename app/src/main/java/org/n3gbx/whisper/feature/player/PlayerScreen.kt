@@ -109,7 +109,7 @@ fun PlayerScreen(
         onRewindBackwardClick = viewModel::onRewindBackwardButtonClick,
         onRewindForwardClick = viewModel::onRewindForwardButtonClick,
         onSliderValueChange = viewModel::onSliderValueChange,
-        onSliderValueChangeFinished = viewModel::onSliderValueChangeFinished,
+        onSliderValueChangeFinish = viewModel::onSliderValueChangeFinish,
         onBookmarkButtonClick = viewModel::onBookmarkButtonClick,
         onEpisodeClick = viewModel::onEpisodeClick,
         onEpisodeDownloadClick = viewModel::onEpisodeDownloadClick,
@@ -129,7 +129,7 @@ private fun PlayerContent(
     onRewindBackwardClick: () -> Unit = {},
     onRewindForwardClick: () -> Unit = {},
     onSliderValueChange: (Float) -> Unit = {},
-    onSliderValueChangeFinished: () -> Unit = {},
+    onSliderValueChangeFinish: () -> Unit = {},
     onDescriptionButtonClick: () -> Unit = {},
     onBookmarkButtonClick: () -> Unit = {},
     onEpisodeClick: (Int) -> Unit = {},
@@ -177,7 +177,7 @@ private fun PlayerContent(
                 valueRange = uiState.sliderValueRange,
                 onValueChange = onSliderValueChange,
                 onValueChangeFinished = {
-                    onSliderValueChangeFinished()
+                    onSliderValueChangeFinish()
                 },
             )
             Controls(
