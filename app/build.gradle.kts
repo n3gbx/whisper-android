@@ -125,6 +125,7 @@ dependencies {
     implementation(libs.shimmer.compose)
     implementation(libs.haze.compose)
     implementation(libs.accompanist.systemuicontroller)
+    implementation(libs.timber)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

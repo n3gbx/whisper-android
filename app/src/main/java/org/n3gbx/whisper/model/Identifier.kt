@@ -6,4 +6,9 @@ import kotlinx.serialization.Serializable
 data class Identifier(
     val localId: String,
     val externalId: String
-)
+) {
+
+    override fun toString(): String {
+        return "$localId:$externalId"
+    }
+}

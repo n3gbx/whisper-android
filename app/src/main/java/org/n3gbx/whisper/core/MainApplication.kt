@@ -9,7 +9,9 @@ import dagger.hilt.EntryPoints
 import dagger.hilt.InstallIn
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
+import org.n3gbx.whisper.BuildConfig
 import org.n3gbx.whisper.core.worker.custom.MainDelegationWorkerFactory
+import timber.log.Timber
 
 @HiltAndroidApp
 class MainApplication : Application() {
@@ -27,5 +29,9 @@ class MainApplication : Application() {
             .build()
         WorkManager.initialize(this, workManagerConfiguration)
         super.onCreate()
+
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
     }
 }

@@ -1,11 +1,14 @@
 package org.n3gbx.whisper.core
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.Constraints
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -23,6 +26,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val episodeRepository: EpisodeRepository,
     private val settingsRepository: SettingsRepository,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     val applicationThemeState: StateFlow<ApplicationTheme> =
@@ -34,7 +38,7 @@ class MainViewModel @Inject constructor(
             )
 
     fun probeEpisodeDurationsPeriodically() {
-        PeriodicWorkRequestBuilder<EpisodeDurationProbeWorker>(1, TimeUnit.HOURS)
+        val request = PeriodicWorkRequestBuilder<EpisodeDurationProbeWorker>(30, TimeUnit.MINUTES)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -42,6 +46,8 @@ class MainViewModel @Inject constructor(
                     .build()
             )
             .build()
+
+        WorkManager.getInstance(context).enqueue(request)
     }
 
     fun reconcileDownloadedEpisodeFiles() {

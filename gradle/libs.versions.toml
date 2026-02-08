@@ -28,6 +28,7 @@ haze = "1.6.10"
 datastore = "1.1.7"
 workRuntimeKtx = "2.11.1"
 accompanistSystemUiController = "0.36.0"
+timber = "5.0.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -92,6 +93,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name="kotlinx-se
 shimmer-compose = { group = "com.valentinilk.shimmer", name="compose-shimmer", version.ref="shimmer"}
 haze-compose = { group = "dev.chrisbanes.haze", name="haze", version.ref="haze" }
 accompanist-systemuicontroller = { group = "com.google.accompanist", name="accompanist-systemuicontroller", version.ref="accompanistSystemUiController" }
+timber = { group = "com.jakewharton.timber", name="timber", version.ref="timber" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
