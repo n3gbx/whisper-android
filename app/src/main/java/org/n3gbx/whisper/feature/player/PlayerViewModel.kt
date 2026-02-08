@@ -2,6 +2,7 @@ package org.n3gbx.whisper.feature.player
 
 import android.content.ComponentName
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
@@ -60,9 +61,12 @@ import org.n3gbx.whisper.core.service.PlayerPlaybackService
 import org.n3gbx.whisper.core.service.PlayerPlaybackService.CustomCommand.CANCEL_SLEEP_TIMER
 import org.n3gbx.whisper.core.service.PlayerPlaybackService.CustomCommand.START_SLEEP_TIMER
 import org.n3gbx.whisper.core.common.EpisodeDownloadManager
+import org.n3gbx.whisper.core.common.IsConnectedToInternet
 import org.n3gbx.whisper.data.SettingsRepository
-import org.n3gbx.whisper.model.ConnectionType
+import org.n3gbx.whisper.model.ConnectionType.NONE
+import org.n3gbx.whisper.model.ConnectionType.WIFI
 import org.n3gbx.whisper.utils.connectionTypeFlow
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -72,13 +76,15 @@ class PlayerViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val episodeRepository: EpisodeRepository,
     private val episodeDownloadManager: EpisodeDownloadManager,
+    private val isConnectedToInternetFlow: IsConnectedToInternet,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     private var currentBookId: Identifier? = null
     private var bookJob: Job? = null
     private val rewindTimeMs = 10000L
     private val rewindActions = MutableSharedFlow<RewindAction>()
-    private var isSliderValueChangeInProgress: Boolean = false
+    private var pendingSliderValue: Float? = null
+    private var isSliderValueChangePending: Boolean = false
 
     private lateinit var controller: MediaController
 
@@ -86,12 +92,9 @@ class PlayerViewModel @Inject constructor(
         context.connectionTypeFlow(),
         settingsRepository.getAutoDownloadSetting(),
         settingsRepository.getDownloadWifiOnlySetting(),
-    ) { connectionType, isAutoDownloadEnabled, isDownloadWifiOnlyEnabled ->
-        if (isDownloadWifiOnlyEnabled) {
-            connectionType == ConnectionType.WIFI && isAutoDownloadEnabled
-        } else {
-            connectionType != ConnectionType.NONE && isAutoDownloadEnabled
-        }
+    ) { connectionType, isEnabled, isWifiOnly ->
+        if (isWifiOnly) connectionType == WIFI && isEnabled
+        else connectionType != NONE && isEnabled
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
@@ -101,12 +104,9 @@ class PlayerViewModel @Inject constructor(
     private val isDownloadEnabledState = combine(
         context.connectionTypeFlow(),
         settingsRepository.getDownloadWifiOnlySetting(),
-    ) { connectionType, isDownloadWifiOnlyEnabled ->
-        if (isDownloadWifiOnlyEnabled) {
-            connectionType == ConnectionType.WIFI
-        } else {
-            connectionType != ConnectionType.NONE
-        }
+    ) { connectionType, isWifiOnly ->
+        if (isWifiOnly) connectionType == WIFI
+        else connectionType != NONE
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
@@ -130,6 +130,7 @@ class PlayerViewModel @Inject constructor(
         initController()
         observeAutoPlayTrigger()
         observeAutoDownload()
+        observePlaybackSource()
     }
 
     fun setBook(bookId: Identifier?) {
@@ -215,12 +216,17 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun onSliderValueChange(value: Float) {
-        isSliderValueChangeInProgress = true
+        isSliderValueChangePending = true
+        pendingSliderValue = value
+
         _uiState.updateSliderValue(value)
     }
 
-    fun onSliderValueChangeFinished(value: Float) {
-        isSliderValueChangeInProgress = false
+    fun onSliderValueChangeFinished() {
+        val value = pendingSliderValue ?: return
+        pendingSliderValue = null
+        isSliderValueChangePending = false
+
         controller.seekTo(value.toLong())
     }
 
@@ -330,7 +336,7 @@ class PlayerViewModel @Inject constructor(
                         }
 
                         controller.currentPosition.also { currentPosition ->
-                            if (_uiState.value.currentTime != currentPosition && !isSliderValueChangeInProgress) {
+                            if (_uiState.value.currentTime != currentPosition && !isSliderValueChangePending) {
                                 _uiState.updateSliderValueAndCurrentTime(currentPosition.toFloat())
                             }
                         }
@@ -458,8 +464,10 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             autoPlayTrigger.collect {
                 if (settingsRepository.getAutoPlaySetting().first()) {
-                    if (this@PlayerViewModel::controller.isInitialized && !controller.isPlaying) {
-                        controller.play()
+                    getControllerIfInitialized()?.let {
+                        if (!it.isLoading && !it.isPlaying) {
+                            it.play()
+                        }
                     }
                 }
             }
@@ -472,7 +480,7 @@ class PlayerViewModel @Inject constructor(
                 isAutoDownloadEnabledState,
                 _uiState
                     .map {
-                        val episodeIndex = getMediaControllerCurrentMediaItemIndex()
+                        val episodeIndex = getControllerIfInitialized()?.currentMediaItemIndex ?: INDEX_UNSET
                         val episodeId = _uiState.getEpisodeByIndex(episodeIndex)?.id?.localId
                         episodeId to it.isPlaying
                     }
@@ -494,6 +502,53 @@ class PlayerViewModel @Inject constructor(
                     }
                 }.collect()
 
+        }
+    }
+
+    private fun observePlaybackSource() {
+        viewModelScope.launch {
+            combine(
+                isConnectedToInternetFlow(),
+                _uiState
+            ) { isConnected, state ->
+                if (state.book != null) {
+                    val episode = state.book.recentEpisode
+                    val localPath = state.book.recentEpisode.localPath
+                    val localFile = localPath?.let { File(it) }
+
+                    when {
+                        localFile != null && localFile.exists() -> localFile.toUri()
+                        isConnected -> Uri.parse(episode.url)
+                        else -> null
+                    }
+                } else {
+                    null
+                }
+            }
+                .distinctUntilChanged()
+                .collect { newUri ->
+                    getControllerIfInitialized()?.let { controller ->
+                        if (newUri == null) {
+                            if (controller.isPlaying) controller.pause()
+                        } else {
+                            val currentUri = controller.currentMediaItem?.localConfiguration?.uri
+
+                            if (currentUri != newUri) {
+                                val mediaItem = controller.currentMediaItem
+                                val index = controller.currentMediaItemIndex
+
+                                if (mediaItem != null && index != INDEX_UNSET) {
+                                    val updatedMediaItem = mediaItem.buildUpon().setUri(newUri).build()
+                                    val position = controller.currentPosition
+
+                                    controller.replaceMediaItem(index, updatedMediaItem)
+                                    controller.seekTo(index, position)
+                                    controller.prepare()
+                                }
+                            }
+                        }
+                    }
+                }
         }
     }
 
@@ -524,8 +579,8 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    private fun getMediaControllerCurrentMediaItemIndex() =
-        if (this@PlayerViewModel::controller.isInitialized) controller.currentMediaItemIndex else INDEX_UNSET
+    private fun getControllerIfInitialized() =
+        if (this@PlayerViewModel::controller.isInitialized) controller else null
 
     private fun MutableStateFlow<PlayerUiState>.getCurrentEpisodeCachedPlaybackPosition(): Long {
         return value.book?.recentEpisode?.progress?.time ?: 0
@@ -604,10 +659,8 @@ class PlayerViewModel @Inject constructor(
 
         override fun onPlayerError(error: PlaybackException) {
             val message = when (val cause = error.cause) {
-                is HttpDataSource.InvalidResponseCodeException ->
-                    "Server error (${cause.responseCode})"
-                else ->
-                    "Playback failed"
+                is HttpDataSource.InvalidResponseCodeException -> "Server error (${cause.responseCode})"
+                else -> "Playback failed: ${error.message}"
             }
 
             navigateBackWithMessage(message)

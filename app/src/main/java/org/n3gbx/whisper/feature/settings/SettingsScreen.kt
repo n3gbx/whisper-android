@@ -328,7 +328,7 @@ private fun ThemeOptionsDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
         tonalElevation = 0.dp,
         onDismissRequest = onDismiss,
         title = {

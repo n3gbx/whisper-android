@@ -129,7 +129,7 @@ private fun PlayerContent(
     onRewindBackwardClick: () -> Unit = {},
     onRewindForwardClick: () -> Unit = {},
     onSliderValueChange: (Float) -> Unit = {},
-    onSliderValueChangeFinished: (Float) -> Unit = {},
+    onSliderValueChangeFinished: () -> Unit = {},
     onDescriptionButtonClick: () -> Unit = {},
     onBookmarkButtonClick: () -> Unit = {},
     onEpisodeClick: (Int) -> Unit = {},
@@ -176,7 +176,9 @@ private fun PlayerContent(
                 value = uiState.sliderValue,
                 valueRange = uiState.sliderValueRange,
                 onValueChange = onSliderValueChange,
-                onValueChangeFinished = onSliderValueChangeFinished,
+                onValueChangeFinished = {
+                    onSliderValueChangeFinished()
+                },
             )
             Controls(
                 isPlaying = uiState.isPlaying,
