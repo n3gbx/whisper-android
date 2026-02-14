@@ -4,5 +4,7 @@ object Constants {
     const val TAG = "WhisperDebug"
     const val UNSET_TIME_PLACEHOLDER = "--:--"
     const val UNSET_TIME = -1L
+    const val INVALID_SIZE = -1L
     const val BOTTOM_NAV_BAR_MIN_HEIGHT = 80
+    const val EPISODE_DURATION_PROBE_WORKER_TAG = "episode_duration_probe_worker"
 }

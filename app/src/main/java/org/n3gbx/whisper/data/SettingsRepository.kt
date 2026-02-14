@@ -18,6 +18,8 @@ class SettingsRepository @Inject constructor(
 
     fun getDownloadWifiOnlySetting(): Flow<Boolean> = datastore.isDownloadWifiOnlyEnabled()
 
+    fun getCacheOptimizationSetting(): Flow<Boolean> = datastore.isCacheOptimizationEnabled()
+
     fun getCatalogGridLayoutSetting(): Flow<Boolean> = datastore.isCatalogGridLayoutEnabled()
 
     fun getInstallationId(): Flow<String?> = datastore.getInstallationId()
@@ -27,6 +29,8 @@ class SettingsRepository @Inject constructor(
     suspend fun setAutoDownloadSetting(value: Boolean) = datastore.setAutoDownloadEnabled(value)
 
     suspend fun setDownloadWifiOnlySetting(value: Boolean) = datastore.setDownloadWifiOnlyEnabled(value)
+
+    suspend fun setCacheOptimizationSetting(value: Boolean) = datastore.setCacheOptimizationEnabled(value)
 
     suspend fun setInstallationId(value: String) = datastore.setInstallationId(value)
 

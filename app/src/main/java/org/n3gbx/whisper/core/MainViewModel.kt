@@ -15,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import org.n3gbx.whisper.core.Constants.EPISODE_DURATION_PROBE_WORKER_TAG
 import org.n3gbx.whisper.core.worker.EpisodeDurationProbeWorker
 import org.n3gbx.whisper.data.EpisodeRepository
 import org.n3gbx.whisper.data.SettingsRepository
@@ -36,7 +37,11 @@ class MainViewModel @Inject constructor(
     }
 
     fun probeEpisodeDurationsPeriodically() {
+        val workManager = WorkManager.getInstance(context)
+        workManager.cancelAllWorkByTag(EPISODE_DURATION_PROBE_WORKER_TAG)
+
         val request = PeriodicWorkRequestBuilder<EpisodeDurationProbeWorker>(30, TimeUnit.MINUTES)
+            .addTag(EPISODE_DURATION_PROBE_WORKER_TAG)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -45,7 +50,7 @@ class MainViewModel @Inject constructor(
             )
             .build()
 
-        WorkManager.getInstance(context).enqueue(request)
+        workManager.enqueue(request)
     }
 
     fun reconcileDownloadedEpisodeFiles() {

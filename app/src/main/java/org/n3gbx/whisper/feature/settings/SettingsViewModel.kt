@@ -14,14 +14,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.n3gbx.whisper.BuildConfig
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.core.common.GetEpisodesCacheDir
+import org.n3gbx.whisper.core.common.GetString
 import org.n3gbx.whisper.data.SettingsRepository
+import org.n3gbx.whisper.domain.DeleteLocalDataUseCase
+import org.n3gbx.whisper.model.StringResource
+import org.n3gbx.whisper.model.StringResource.Companion.fromRes
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val getEpisodesCacheDir: GetEpisodesCacheDir,
+    private val deleteLocalData: DeleteLocalDataUseCase,
+    private val getString: GetString,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -37,10 +43,12 @@ class SettingsViewModel @Inject constructor(
                 settingsRepository.getAutoDownloadSetting(),
                 settingsRepository.getDownloadWifiOnlySetting(),
                 settingsRepository.getInstallationId(),
-            ) { autoPlay, autoDownload, downloadWifiOnly, installationId ->
+                settingsRepository.getCacheOptimizationSetting(),
+            ) { autoPlay, autoDownload, downloadWifiOnly, installationId, optimizeCache ->
                 SettingsUiState(
                     autoPlay = autoPlay,
                     autoDownload = autoDownload,
+                    optimizeCache = optimizeCache,
                     downloadWifiOnly = downloadWifiOnly,
                     version = BuildConfig.VERSION_NAME,
                     installationId = installationId
@@ -58,6 +66,8 @@ class SettingsViewModel @Inject constructor(
                     settingsRepository.setAutoPlaySetting(!setting.value)
                 setting is Setting.Toggle && setting.type == Setting.Type.AUTO_DOWNLOAD ->
                     settingsRepository.setAutoDownloadSetting(!setting.value)
+                setting is Setting.Toggle && setting.type == Setting.Type.CACHE_OPTIMIZATION ->
+                    settingsRepository.setCacheOptimizationSetting(!setting.value)
                 setting is Setting.Toggle && setting.type == Setting.Type.DOWNLOAD_WIFI_ONLY ->
                     settingsRepository.setDownloadWifiOnlySetting(!setting.value)
                 setting is Setting.Button && setting.type == Setting.Type.DOWNLOADS ->
@@ -77,9 +87,11 @@ class SettingsViewModel @Inject constructor(
 
     fun onClearApplicationDataDialogConfirm() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { getEpisodesCacheDir().deleteRecursively() }
-            settingsRepository.clearLocalData()
-            _uiEvents.emit(SettingsUiEvent.Restart)
+            if (!deleteLocalData()) {
+                _uiEvents.emit(SettingsUiEvent.ShowMessage(getString(fromRes(R.string.error_general))))
+            } else {
+                _uiEvents.emit(SettingsUiEvent.Restart)
+            }
         }
     }
 }

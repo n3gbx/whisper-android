@@ -519,7 +519,7 @@ private fun EpisodeDownloadButton(
             download.state == DownloadState.FAILED -> {
                 Icon(
                     painter = painterResource(R.drawable.ic_error),
-                    tint = MaterialTheme.colorScheme.error,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     contentDescription = null,
                 )
             }

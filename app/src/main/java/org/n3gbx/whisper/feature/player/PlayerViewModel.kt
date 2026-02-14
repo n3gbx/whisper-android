@@ -24,6 +24,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -47,6 +48,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.n3gbx.whisper.R
 import org.n3gbx.whisper.data.BookRepository
 import org.n3gbx.whisper.data.EpisodeRepository
@@ -63,6 +65,7 @@ import org.n3gbx.whisper.core.common.EpisodeDownloadManager
 import org.n3gbx.whisper.core.common.IsConnectedToInternet
 import org.n3gbx.whisper.core.common.GetString
 import org.n3gbx.whisper.data.SettingsRepository
+import org.n3gbx.whisper.domain.DeleteEpisodeCacheUseCase
 import org.n3gbx.whisper.model.ConnectionType.NONE
 import org.n3gbx.whisper.model.ConnectionType.WIFI
 import org.n3gbx.whisper.model.PlaybackSource
@@ -70,6 +73,7 @@ import org.n3gbx.whisper.model.StringResource.Companion.fromRes
 import org.n3gbx.whisper.utils.connectionTypeFlow
 import timber.log.Timber
 import java.io.File
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -79,6 +83,7 @@ class PlayerViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val episodeRepository: EpisodeRepository,
     private val episodeDownloadManager: EpisodeDownloadManager,
+    private val deleteEpisodeCache: DeleteEpisodeCacheUseCase,
     private val isConnectedToInternetFlow: IsConnectedToInternet,
     private val getString: GetString,
 ) : ViewModel() {
@@ -272,7 +277,7 @@ class PlayerViewModel @Inject constructor(
 
         val isEpisodeFinished = _uiState.getEpisodeByIndex(index)?.isFinished == true
 
-        if (isEpisodeFinished && isSameEpisode) {
+        if (isEpisodeFinished) {
             withController { it.seekTo(index, 0) }
         } else if (!isSameEpisode) {
             val time = _uiState.getEpisodeCachedPlaybackPositionByIndex(index)
@@ -335,15 +340,17 @@ class PlayerViewModel @Inject constructor(
 
             when {
                 episode.download == null -> {
-                    val workId = episodeDownloadManager.enqueueDownload(
+                    val workId = enqueueDownload(
                         bookLocalId = episode.bookId.localId,
                         episodeLocalId = episode.id.localId,
                         episodeUrl = episode.url,
                     )
-                    episodeRepository.markEpisodeDownloadQueued(
-                        workId = workId.toString(),
-                        episodeLocalId = episodeLocalId,
-                    )
+                    if (workId != null) {
+                        episodeRepository.markEpisodeDownloadQueued(
+                            workId = workId.toString(),
+                            episodeLocalId = episodeLocalId,
+                        )
+                    }
                 }
                 isCancellable -> {
                     val workId = episodeRepository.getEpisodeDownloadWorkId(episodeLocalId)
@@ -352,6 +359,28 @@ class PlayerViewModel @Inject constructor(
                         episodeRepository.clearEpisodeDownload(episodeLocalId)
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Enqueue episode download and return UUID if size limit is not reached
+     */
+    private suspend fun enqueueDownload(
+        bookLocalId: String,
+        episodeLocalId: String,
+        episodeUrl: String,
+    ): UUID? {
+        val result = episodeDownloadManager.enqueueDownload(
+            bookLocalId = bookLocalId,
+            episodeLocalId = episodeLocalId,
+            episodeUrl = episodeUrl,
+        )
+        when (result) {
+            is EpisodeDownloadManager.Result.Enqueued -> return result.uuid
+            is EpisodeDownloadManager.Result.SizeLimit -> {
+                _uiEvents.sendMessage(getString(fromRes(R.string.error_cache_size_limit)))
+                return null
             }
         }
     }
@@ -723,25 +752,28 @@ class PlayerViewModel @Inject constructor(
             Timber.tag(LOG_TAG).d("onMediaItemTransition: mediaItemId=%s, reason=%s", mediaItem?.mediaId, reason)
 
             if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO) {
-                withController {
-                    val prevEpisode = _uiState.getEpisodeByIndex(it.previousMediaItemIndex)
-
-                    if (prevEpisode != null) {
+                controller
+                    ?.previousMediaItemIndex
+                    ?.let { _uiState.getEpisodeByIndex(it) }
+                    ?.let { prevEpisode ->
                         viewModelScope.launch {
                             saveEpisodePlaybackProgress(
                                 externalEpisodeId = prevEpisode.id.externalId,
                                 currentTime = prevEpisode.duration,
                             )
+                            if (settingsRepository.getCacheOptimizationSetting().first()) {
+                                deleteEpisodeCache(prevEpisode)
+                            }
                         }
                     }
-                }
             }
 
             val newEpisode = _uiState.getEpisodeByExternalId(mediaItem?.mediaId)
 
             if (newEpisode?.hasError == true) {
-                withController {
-                    onEpisodeClick(it.nextMediaItemIndex)
+                val nextEpisodeIndex = controller?.nextMediaItemIndex
+                if (nextEpisodeIndex != null) {
+                    onEpisodeClick(nextEpisodeIndex)
                 }
             } else if (newEpisode != null) {
                 _uiState.update {

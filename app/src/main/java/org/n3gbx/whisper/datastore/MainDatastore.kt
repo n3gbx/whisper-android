@@ -15,6 +15,7 @@ class MainDatastore @Inject constructor(
     private val isCatalogGridLayoutEnabledKey = booleanPreferencesKey("is_catalog_grid_layout_enabled")
     private val isAutoPlayEnabledKey = booleanPreferencesKey("is_auto_play_enabled")
     private val isAutoDownloadEnabledKey = booleanPreferencesKey("is_auto_download_enabled")
+    private val isCacheOptimizationEnabledKey = booleanPreferencesKey("is_cache_optimization_enabled")
     private val isDownloadWifiOnlyEnabledKey = booleanPreferencesKey("is_download_wifi_only_enabled")
     private val installationIdKey = stringPreferencesKey("installation_id")
 
@@ -24,6 +25,8 @@ class MainDatastore @Inject constructor(
 
     suspend fun setAutoDownloadEnabled(value: Boolean) = put(isAutoDownloadEnabledKey, value)
 
+    suspend fun setCacheOptimizationEnabled(value: Boolean) = put(isCacheOptimizationEnabledKey, value)
+
     suspend fun setDownloadWifiOnlyEnabled(value: Boolean) = put(isDownloadWifiOnlyEnabledKey, value)
 
     suspend fun setInstallationId(value: String) = put(installationIdKey, value)
@@ -32,7 +35,9 @@ class MainDatastore @Inject constructor(
 
     fun isAutoDownloadEnabled() = get(isAutoDownloadEnabledKey, false)
 
-    fun isDownloadWifiOnlyEnabled() = get(isDownloadWifiOnlyEnabledKey, false)
+    fun isCacheOptimizationEnabled() = get(isCacheOptimizationEnabledKey, false)
+
+    fun isDownloadWifiOnlyEnabled() = get(isDownloadWifiOnlyEnabledKey, true)
 
     fun isCatalogGridLayoutEnabled() = get(isCatalogGridLayoutEnabledKey, false)
 

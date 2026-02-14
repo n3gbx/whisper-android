@@ -13,7 +13,7 @@ import org.n3gbx.whisper.core.common.GetEpisodesCacheDir
 import org.n3gbx.whisper.data.EpisodeRepository
 import timber.log.Timber
 import java.io.File
-
+import java.util.concurrent.TimeUnit
 
 class EpisodeDownloadWorker(
     appContext: Context,
@@ -48,7 +48,12 @@ class EpisodeDownloadWorker(
                 progress = 0,
             )
 
-            val client = OkHttpClient()
+            val client = OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build()
             val request = Request.Builder().url(episodeUrl).build()
             val response = client.newCall(request).execute()
 

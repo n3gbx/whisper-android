@@ -8,6 +8,5 @@ import javax.inject.Inject
 class GetEpisodesCacheDir @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-
     operator fun invoke() = File(context.externalCacheDir, "episodes")
 }

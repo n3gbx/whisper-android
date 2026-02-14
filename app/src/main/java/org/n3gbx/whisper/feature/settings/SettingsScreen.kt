@@ -1,5 +1,6 @@
 package org.n3gbx.whisper.feature.settings
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -49,6 +51,7 @@ fun SettingsScreen(
     restart: () -> Unit,
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     if (uiState.value.showClearApplicationDataDialog) {
         DeleteDialog(
@@ -64,6 +67,7 @@ fun SettingsScreen(
             when (event) {
                 is SettingsUiEvent.NavigateToDownloads -> navigateToDownloads()
                 is SettingsUiEvent.NavigateToBrowser -> navigateToBrowser(event.link)
+                is SettingsUiEvent.ShowMessage -> Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 is SettingsUiEvent.Restart -> restart()
             }
         }

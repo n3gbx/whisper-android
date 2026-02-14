@@ -9,6 +9,7 @@ import org.n3gbx.whisper.feature.settings.Setting.Section.DATA
 import org.n3gbx.whisper.feature.settings.Setting.Section.OTHER
 import org.n3gbx.whisper.feature.settings.Setting.Toggle
 import org.n3gbx.whisper.feature.settings.Setting.Type.AUTO_DOWNLOAD
+import org.n3gbx.whisper.feature.settings.Setting.Type.CACHE_OPTIMIZATION
 import org.n3gbx.whisper.feature.settings.Setting.Type.AUTO_PLAY
 import org.n3gbx.whisper.feature.settings.Setting.Type.BACKUP
 import org.n3gbx.whisper.feature.settings.Setting.Type.CLEAR_DATA
@@ -25,6 +26,7 @@ data class SettingsUiState(
     val installationId: String? = null,
     val autoPlay: Boolean = false,
     val autoDownload: Boolean = false,
+    val optimizeCache: Boolean = false,
     val downloadWifiOnly: Boolean = false,
     val version: String = "",
     val showClearApplicationDataDialog: Boolean = false,
@@ -33,6 +35,7 @@ data class SettingsUiState(
     val settings = listOf(
         Toggle(autoPlay, AUTO_PLAY, CONTENT),
         Toggle(autoDownload, AUTO_DOWNLOAD, CONTENT),
+        Toggle(optimizeCache, CACHE_OPTIMIZATION, CONTENT),
         Toggle(downloadWifiOnly, DOWNLOAD_WIFI_ONLY, CONTENT),
         Link(BACKUP, DATA),
         Button(DOWNLOADS, DATA),
@@ -80,6 +83,7 @@ sealed interface Setting {
     ) {
         AUTO_PLAY(fromRes(R.string.settings_content_auto_play_title), fromRes(R.string.settings_content_auto_play_description)),
         AUTO_DOWNLOAD(fromRes(R.string.settings_content_auto_download_title), fromRes(R.string.settings_content_auto_download_description)),
+        CACHE_OPTIMIZATION(fromRes(R.string.settings_content_cache_optimization_title), fromRes(R.string.settings_content_cache_optimization_description)),
         DOWNLOAD_WIFI_ONLY(fromRes(R.string.settings_content_download_only_wifi_title), fromRes(R.string.settings_content_download_only_wifi_description)),
         DOWNLOADS(fromRes(R.string.settings_data_downloads_title)),
         BACKUP(fromRes(R.string.settings_data_backup_title), fromRes(R.string.settings_data_backup_description)),
@@ -101,5 +105,6 @@ sealed interface Setting {
 sealed interface SettingsUiEvent {
     data object Restart : SettingsUiEvent
     data object NavigateToDownloads : SettingsUiEvent
+    data class ShowMessage(val message: String) : SettingsUiEvent
     data class NavigateToBrowser(val link: String) : SettingsUiEvent
 }
