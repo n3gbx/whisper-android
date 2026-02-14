@@ -5,56 +5,68 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentEnforcement
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.model.ApplicationTheme
+import org.n3gbx.whisper.ui.common.DeleteDialog
 import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
 import org.n3gbx.whisper.ui.utils.toolbarColors
+import org.n3gbx.whisper.utils.asRawString
 
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel()
+    viewModel: SettingsViewModel = hiltViewModel(),
+    navigateToDownloads: () -> Unit,
+    navigateToBrowser: (link: String) -> Unit,
+    restart: () -> Unit,
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle()
 
-    if (uiState.value.showThemeOptionsDialog) {
-        ThemeOptionsDialog(
-            currentTheme = uiState.value.theme,
-            onClick = viewModel::onApplicationThemeChange,
-            onDismiss = viewModel::onApplicationThemeOptionsDialogDismiss,
+    if (uiState.value.showClearApplicationDataDialog) {
+        DeleteDialog(
+            title = stringResource(R.string.dialog_clear_all_data_title),
+            text = stringResource(R.string.dialog_clear_all_data_text),
+            onConfirm = viewModel::onClearApplicationDataDialogConfirm,
+            onDismiss = viewModel::onClearApplicationDataDialogDismiss,
         )
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.uiEvents.collect { event ->
+            when (event) {
+                is SettingsUiEvent.NavigateToDownloads -> navigateToDownloads()
+                is SettingsUiEvent.NavigateToBrowser -> navigateToBrowser(event.link)
+                is SettingsUiEvent.Restart -> restart()
+            }
+        }
     }
 
     SettingsContent(
@@ -75,7 +87,7 @@ private fun SettingsContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = "Settings")
+                    Text(text = stringResource(R.string.settings_heading))
                 },
                 colors = toolbarColors()
             )
@@ -93,7 +105,7 @@ private fun SettingsContent(
             uiState.settings.forEach { (section, settings) ->
                 SettingsSection(
                     modifier = modifier,
-                    title = section.title
+                    title = section.title.asRawString()
                 ) {
                     settings.forEach { setting ->
                         Setting(
@@ -118,8 +130,8 @@ private fun Setting(
             ToggleSetting(
                 modifier = modifier,
                 value = setting.value,
-                title = setting.type.title,
-                description = setting.type.description,
+                title = setting.type.title.asRawString(),
+                description = setting.type.description?.asRawString(),
                 onClick = { onSettingClick(setting) }
             )
         }
@@ -127,15 +139,26 @@ private fun Setting(
             SelectSetting(
                 modifier = modifier,
                 value = setting.value,
-                title = setting.type.title,
-                description = setting.type.description,
+                title = setting.type.title.asRawString(),
+                description = setting.type.description?.asRawString(),
                 onClick = { onSettingClick(setting) }
             )
         }
         is Setting.Button -> {
             ButtonSetting(
                 modifier = modifier,
-                title = setting.type.title,
+                title = setting.type.title.asRawString(),
+                description = setting.type.description?.asRawString(),
+                icon = Icons.Default.KeyboardArrowRight,
+                onClick = { onSettingClick(setting) }
+            )
+        }
+        is Setting.Link -> {
+            ButtonSetting(
+                modifier = modifier,
+                title = setting.type.title.asRawString(),
+                description = setting.type.description?.asRawString(),
+                icon = Icons.Default.OpenInNew,
                 onClick = { onSettingClick(setting) }
             )
         }
@@ -245,6 +268,8 @@ private fun ButtonSetting(
     modifier: Modifier = Modifier,
     isEnabled: Boolean = true,
     title: String,
+    description: String?,
+    icon: ImageVector,
     onClick: () -> Unit
 ) {
     Setting(
@@ -258,9 +283,18 @@ private fun ButtonSetting(
                 maxLines = 1
             )
         },
+        description = description?.let {
+            {
+                Text(
+                    text = description,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        },
         value = {
             Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
+                imageVector = icon,
                 contentDescription = null,
             )
         }
@@ -318,71 +352,5 @@ private fun Setting(
                 value()
             }
         }
-    }
-}
-
-@Composable
-private fun ThemeOptionsDialog(
-    currentTheme: ApplicationTheme,
-    onClick: (ApplicationTheme) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        tonalElevation = 0.dp,
-        onDismissRequest = onDismiss,
-        title = {
-            Text(text = "Select theme")
-        },
-        text = {
-            Column {
-                ThemeOption(
-                    title = "System default",
-                    selected = currentTheme == ApplicationTheme.SYSTEM,
-                    onClick = { onClick(ApplicationTheme.SYSTEM) }
-                )
-                ThemeOption(
-                    title = "Light",
-                    selected = currentTheme == ApplicationTheme.LIGHT,
-                    onClick = { onClick(ApplicationTheme.LIGHT) }
-                )
-                ThemeOption(
-                    title = "Dark",
-                    selected = currentTheme == ApplicationTheme.DARK,
-                    onClick = { onClick(ApplicationTheme.DARK) }
-                )
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ThemeOption(
-    title: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentEnforcement provides false) {
-            RadioButton(
-                selected = selected,
-                onClick = onClick
-            )
-        }
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = title)
     }
 }

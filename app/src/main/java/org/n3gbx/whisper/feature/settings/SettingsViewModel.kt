@@ -3,25 +3,32 @@ package org.n3gbx.whisper.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.n3gbx.whisper.BuildConfig
+import org.n3gbx.whisper.core.common.GetEpisodesCacheDir
 import org.n3gbx.whisper.data.SettingsRepository
-import org.n3gbx.whisper.model.ApplicationTheme
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val getEpisodesCacheDir: GetEpisodesCacheDir,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState
+
+    private val _uiEvents = MutableSharedFlow<SettingsUiEvent>()
+    val uiEvents: SharedFlow<SettingsUiEvent> = _uiEvents.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -29,15 +36,12 @@ class SettingsViewModel @Inject constructor(
                 settingsRepository.getAutoPlaySetting(),
                 settingsRepository.getAutoDownloadSetting(),
                 settingsRepository.getDownloadWifiOnlySetting(),
-                settingsRepository.getThemeSetting(),
-                settingsRepository.getInstallationId()
-            ) { autoPlay, autoDownload, downloadWifiOnly, theme, installationId ->
+                settingsRepository.getInstallationId(),
+            ) { autoPlay, autoDownload, downloadWifiOnly, installationId ->
                 SettingsUiState(
                     autoPlay = autoPlay,
                     autoDownload = autoDownload,
                     downloadWifiOnly = downloadWifiOnly,
-                    theme = theme,
-                    language = "System default", // TODO
                     version = BuildConfig.VERSION_NAME,
                     installationId = installationId
                 )
@@ -56,20 +60,26 @@ class SettingsViewModel @Inject constructor(
                     settingsRepository.setAutoDownloadSetting(!setting.value)
                 setting is Setting.Toggle && setting.type == Setting.Type.DOWNLOAD_WIFI_ONLY ->
                     settingsRepository.setDownloadWifiOnlySetting(!setting.value)
-                setting is Setting.Value<*> && setting.type == Setting.Type.THEME ->
-                    _uiState.update { it.copy(showThemeOptionsDialog = true) }
-                else -> {} // TODO
+                setting is Setting.Button && setting.type == Setting.Type.DOWNLOADS ->
+                    _uiEvents.emit(SettingsUiEvent.NavigateToDownloads)
+                setting is Setting.Link && setting.type == Setting.Type.BACKUP ->
+                    _uiEvents.emit(SettingsUiEvent.NavigateToBrowser("https://developer.android.com/identity/data/autobackup#BackupLocation"))
+                setting is Setting.Button && setting.type == Setting.Type.CLEAR_DATA ->
+                    _uiState.update { it.copy(showClearApplicationDataDialog = true) }
+                else -> {}
             }
         }
     }
 
-    fun onApplicationThemeOptionsDialogDismiss() {
-        _uiState.update { it.copy(showThemeOptionsDialog = false) }
+    fun onClearApplicationDataDialogDismiss() {
+        _uiState.update { it.copy(showClearApplicationDataDialog = false) }
     }
 
-    fun onApplicationThemeChange(applicationTheme: ApplicationTheme) {
+    fun onClearApplicationDataDialogConfirm() {
         viewModelScope.launch {
-            settingsRepository.setThemeSetting(applicationTheme)
+            withContext(Dispatchers.IO) { getEpisodesCacheDir().deleteRecursively() }
+            settingsRepository.clearLocalData()
+            _uiEvents.emit(SettingsUiEvent.Restart)
         }
     }
 }

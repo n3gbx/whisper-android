@@ -19,12 +19,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.BooksType
-import org.n3gbx.whisper.ui.common.components.BookListItem
+import org.n3gbx.whisper.ui.common.BookListItem
+import org.n3gbx.whisper.ui.common.EmptyListPlaceholder
 import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
 import org.n3gbx.whisper.ui.utils.toolbarColors
 
@@ -57,7 +60,7 @@ private fun LibraryContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(text = "Library")
+                    Text(text = stringResource(R.string.library_heading))
                 },
                 colors = toolbarColors()
             )
@@ -94,12 +97,16 @@ private fun LibraryContent(
             Box(
                 modifier = Modifier.padding(16.dp)
             ) {
-                BooksList(
-                    books = uiState.books,
-                    showProgress = uiState.selectedBooksType == BooksType.STARTED,
-                    onBookClick = onBookClick,
-                    onBookmarkButtonClick = onBookmarkButtonClick
-                )
+                if (uiState.books.isEmpty()) {
+                    EmptyListPlaceholder(modifier = Modifier.padding(padding))
+                } else {
+                    BooksList(
+                        books = uiState.books,
+                        showProgress = uiState.selectedBooksType == BooksType.STARTED,
+                        onBookClick = onBookClick,
+                        onBookmarkButtonClick = onBookmarkButtonClick
+                    )
+                }
             }
         }
     }

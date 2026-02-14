@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.ui.common.components
+package org.n3gbx.whisper.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

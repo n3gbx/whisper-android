@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.ui.common.components
+package org.n3gbx.whisper.ui.common
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bookmark
@@ -18,6 +18,6 @@ fun BookmarkIcon(
             isBookmarked -> Icons.Rounded.Bookmark
             else -> Icons.Rounded.BookmarkBorder
         },
-        contentDescription = "Bookmark"
+        contentDescription = null
     )
 }

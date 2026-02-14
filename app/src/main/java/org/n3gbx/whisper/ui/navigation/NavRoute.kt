@@ -28,4 +28,7 @@ data object Library
 data object Settings
 
 @Serializable
+data object Downloads
+
+@Serializable
 data class Player(val bookId: Identifier? = null)

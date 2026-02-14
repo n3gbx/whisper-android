@@ -24,11 +24,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -38,7 +40,6 @@ import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,19 +48,24 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.rememberAsyncImagePainter
 import com.valentinilk.shimmer.shimmer
+import kotlinx.coroutines.delay
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.model.Book
 import org.n3gbx.whisper.model.Identifier
-import org.n3gbx.whisper.ui.common.components.BookListItem
-import org.n3gbx.whisper.ui.common.components.BookmarkIcon
-import org.n3gbx.whisper.ui.common.components.DropdownMenuBox
-import org.n3gbx.whisper.ui.common.components.SearchToolbar
-import org.n3gbx.whisper.ui.common.components.TotalDuration
+import org.n3gbx.whisper.ui.common.BookListItem
+import org.n3gbx.whisper.ui.common.BookmarkIcon
+import org.n3gbx.whisper.ui.common.DropdownMenuBox
+import org.n3gbx.whisper.ui.common.SearchToolbar
+import org.n3gbx.whisper.ui.common.TotalDuration
 import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
+import org.n3gbx.whisper.utils.asRawString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,10 +74,7 @@ fun CatalogScreen(
     navigateToPlayer: (bookId: Identifier) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var isGridLayout by rememberSaveable { mutableStateOf(false) }
     val pullToRefreshState = rememberPullToRefreshState()
-
-    val toggleLayout: () -> Unit = { isGridLayout = !isGridLayout }
 
     LaunchedEffect(pullToRefreshState.isRefreshing) {
         if (pullToRefreshState.isRefreshing && !uiState.isLoading) {
@@ -80,17 +83,20 @@ fun CatalogScreen(
         }
     }
 
+    CatalogDelayedLoadingDialog(
+        isLoading = uiState.isLoading
+    )
+
     CatalogContent(
         uiState = uiState,
         pullToRefreshState = pullToRefreshState,
-        isGridLayout = isGridLayout,
         onSearchQueryChange = viewModel::onSearchQuery,
         onSearchToggle = viewModel::onSearchToggle,
         onSearchQueryClear = viewModel::onSearchQueryClear,
         onBookmarkButtonClick = viewModel::onBookmarkButtonClick,
         onSortOptionChange = viewModel::onSortOptionChange,
         onClick = navigateToPlayer,
-        onLayoutToggle = toggleLayout,
+        onLayoutToggle = viewModel::onLayoutToggle,
     )
 }
 
@@ -100,7 +106,6 @@ private fun CatalogContent(
     modifier: Modifier = Modifier,
     uiState: CatalogUiState,
     pullToRefreshState: PullToRefreshState,
-    isGridLayout: Boolean,
     onSearchQueryChange: (String) -> Unit,
     onSearchToggle: () -> Unit,
     onSearchQueryClear: () -> Unit,
@@ -132,7 +137,6 @@ private fun CatalogContent(
             } else {
                 Catalog(
                     uiState = uiState,
-                    isGridLayout = isGridLayout,
                     onBookmarkButtonClick = onBookmarkButtonClick,
                     onClick = onClick,
                     onLayoutToggle = onLayoutToggle,
@@ -153,7 +157,6 @@ private fun CatalogContent(
 private fun Catalog(
     modifier: Modifier = Modifier,
     uiState: CatalogUiState,
-    isGridLayout: Boolean,
     onBookmarkButtonClick: (bookId: Identifier) -> Unit,
     onClick: (bookId: Identifier) -> Unit,
     onLayoutToggle: () -> Unit,
@@ -168,11 +171,11 @@ private fun Catalog(
         CatalogHeader(
             sortOptions = uiState.sortOptions,
             selectedSortOption = uiState.selectedSortOption,
-            isGridLayout = isGridLayout,
+            isGridLayout = uiState.isGridLayout,
             onLayoutToggle = onLayoutToggle,
             onSortOptionChange = onSortOptionChange
         )
-        if (isGridLayout) {
+        if (uiState.isGridLayout) {
             BooksGrid(
                 books = uiState.books,
                 onBookmarkButtonClick = onBookmarkButtonClick,
@@ -223,7 +226,7 @@ private fun Layout(
     Icon(
         modifier = modifier.clickable(onClick = onToggle),
         imageVector = if (isGridLayout) Icons.Default.List else Icons.Default.GridView,
-        contentDescription = "Layout",
+        contentDescription = null,
         tint = MaterialTheme.colorScheme.primary
     )
 }
@@ -239,12 +242,14 @@ private fun Sort(
 
     val sortLabel = if (selectedOption == null) "Sort" else "Sort by: ${selectedOption.label}"
 
+    val context = LocalContext.current
+
     DropdownMenuBox(
         modifier = modifier,
         isVisible = isDropdownMenuVisible,
         options = options,
         selectedOption = selectedOption,
-        optionLabel = { it.label },
+        optionLabel = { it.label.asRawString(context.resources) },
         onSelect = onChange,
         onReset = { onChange(null) },
         onDismiss = {
@@ -259,7 +264,7 @@ private fun Sort(
         ) {
             Icon(
                 imageVector = Icons.Default.Sort,
-                contentDescription = "Sort",
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
@@ -470,5 +475,50 @@ private fun CatalogLoading(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CatalogDelayedLoadingDialog(
+    isLoading: Boolean,
+    delayMs: Long = 5_000
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var isDialogShown by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isLoading) {
+        if (!isDialogShown) {
+            if (isLoading) {
+                delay(delayMs)
+                showDialog = true
+            } else {
+                showDialog = false
+            }
+        }
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDialog = false
+                isDialogShown = true
+            },
+            title = { Text(text = stringResource(R.string.dialog_loading_title)) },
+            text = { Text(text = stringResource(R.string.dialog_loading_text)) },
+            shape = MaterialTheme.shapes.small,
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        isDialogShown = true
+                    }
+                ) {
+                    Text(text = stringResource(R.string.button_got_it))
+                }
+            }
+        )
     }
 }

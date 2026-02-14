@@ -40,11 +40,22 @@ class PlayerPlaybackService : MediaSessionService() {
     // Stop the service in any case when the user dismisses the app
     @OptIn(UnstableApi::class)
     override fun onTaskRemoved(rootIntent: Intent?) {
-        pauseAllPlayersAndStopSelf()
+        stopAndReleasePlayer()
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
+    }
+
+    private fun stopAndReleasePlayer() {
+        mediaSession?.run {
+            player.stop() // abandons audio focus immediately
+            player.release()  // releases codecs / audio resources
+            release() // releases MediaSession
+            mediaSession = null
+        }
+        stopSelf()
     }
 
     private fun startSleepTimer(durationMs: Long) {

@@ -6,14 +6,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.n3gbx.whisper.data.BookRepository
+import org.n3gbx.whisper.data.SettingsRepository
 import org.n3gbx.whisper.model.BooksSortType
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
@@ -22,6 +26,7 @@ import javax.inject.Inject
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
     private val bookRepository: BookRepository,
+    private val settingsRepository: SettingsRepository,
 ): ViewModel() {
 
     private val getBooksTriggerEvents = MutableSharedFlow<GetBooksTrigger>()
@@ -78,6 +83,12 @@ class CatalogViewModel @Inject constructor(
         }
     }
 
+    fun onLayoutToggle() {
+        viewModelScope.launch {
+            settingsRepository.setCatalogGridLayoutSetting(!_uiState.value.isGridLayout)
+        }
+    }
+
     private fun observeSearchQuery() {
         getBooksTriggerEvents
             .onStart { emit(GetBooksTrigger.Search(_uiState.value.searchQuery)) }
@@ -87,28 +98,32 @@ class CatalogViewModel @Inject constructor(
                 val query = (event as? GetBooksTrigger.Search)?.query
                 val sortType = (event as? GetBooksTrigger.Sort)?.sortType
 
-                bookRepository.getBooks(
-                    query = query,
-                    shouldRefresh = shouldRefresh,
-                    booksSortType = sortType
+                combine(
+                    flow = bookRepository.getBooks(
+                        query = query,
+                        shouldRefresh = shouldRefresh,
+                        booksSortType = sortType,
+                    ),
+                    flow2 = settingsRepository.getCatalogGridLayoutSetting(),
+                    transform = ::Pair,
                 )
             }
-            .onEach { result ->
-                when (result) {
-                    is Result.Loading -> {
-                        _uiState.update {
-                            it.copy(isLoading = true)
-                        }
-                    }
+            .onEach { (booksResult, isGridLayout) ->
+                when (booksResult) {
                     is Result.Success -> {
                         _uiState.update {
                             it.copy(
-                                books = result.data,
+                                books = booksResult.data,
+                                isGridLayout = isGridLayout,
                                 isLoading = false
                             )
                         }
                     }
-                    else -> {}
+                    else -> {
+                        _uiState.update {
+                            it.copy(isLoading = true)
+                        }
+                    }
                 }
             }
             .launchIn(viewModelScope)

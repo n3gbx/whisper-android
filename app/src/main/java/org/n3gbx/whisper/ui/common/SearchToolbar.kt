@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.ui.common.components
+package org.n3gbx.whisper.ui.common
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
@@ -23,9 +23,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.ui.utils.toolbarColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +85,7 @@ fun SearchToolbar(
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (searchQuery.isEmpty()) {
                                 Text(
-                                    text = "Book title or author",
+                                    text = stringResource(R.string.catalog_search_placeholder),
                                     color = MaterialTheme.colorScheme.outline,
                                     style = MaterialTheme.typography.bodyLarge
                                 )
@@ -93,7 +95,7 @@ fun SearchToolbar(
                     }
                 )
             } else {
-                Text(text = "Catalog")
+                Text(text = stringResource(R.string.catalog_heading))
             }
         },
         actions = {
@@ -101,14 +103,14 @@ fun SearchToolbar(
                 IconButton(onClick = onSearchClearButtonClick) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "Close/Clear search"
+                        contentDescription = null
                     )
                 }
             } else {
                 IconButton(onClick = onSearchToggle) {
                     Icon(
                         imageVector = Icons.Filled.Search,
-                        contentDescription = "Search"
+                        contentDescription = null
                     )
                 }
             }

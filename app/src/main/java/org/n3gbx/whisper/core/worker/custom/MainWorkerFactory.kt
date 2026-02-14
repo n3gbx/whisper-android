@@ -5,6 +5,7 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import org.n3gbx.whisper.core.common.EpisodeDurationProberContext
+import org.n3gbx.whisper.core.common.GetEpisodesCacheDir
 import org.n3gbx.whisper.core.worker.EpisodeDownloadWorker
 import org.n3gbx.whisper.core.worker.EpisodeDurationProbeWorker
 import org.n3gbx.whisper.data.EpisodeRepository
@@ -15,6 +16,7 @@ class MainWorkerFactory @Inject constructor(
     private val episodeRepository: EpisodeRepository,
     private val episodeDao: EpisodeDao,
     private val episodeDurationProberContext: EpisodeDurationProberContext,
+    private val getEpisodesCacheDir: GetEpisodesCacheDir,
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -28,6 +30,7 @@ class MainWorkerFactory @Inject constructor(
                     appContext = appContext,
                     workerParams = workerParameters,
                     episodeRepository = episodeRepository,
+                    getEpisodesCacheDir = getEpisodesCacheDir,
                 )
             EpisodeDurationProbeWorker::class.java.name ->
                 EpisodeDurationProbeWorker(

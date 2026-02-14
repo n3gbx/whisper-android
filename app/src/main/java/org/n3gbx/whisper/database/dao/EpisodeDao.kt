@@ -30,6 +30,9 @@ interface EpisodeDao {
     @Query("UPDATE episode SET localPath = NULL WHERE id_localId = :episodeLocalId")
     suspend fun clearEpisodeLocalPath(episodeLocalId: String)
 
+    @Query("UPDATE episode SET localPath = NULL")
+    suspend fun clearAllEpisodesLocalPaths()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertEpisodes(episodes: List<EpisodeEntity>)
 

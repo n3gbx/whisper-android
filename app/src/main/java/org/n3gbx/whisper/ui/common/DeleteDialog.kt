@@ -1,9 +1,8 @@
-package org.n3gbx.whisper.ui.common.components
+package org.n3gbx.whisper.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -16,12 +15,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import org.n3gbx.whisper.R
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeleteDialog(
     modifier: Modifier = Modifier,
+    title: String,
+    text: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -43,7 +46,7 @@ fun DeleteDialog(
                 ) {
                     Text(
                         modifier = modifier,
-                        text = "Delete",
+                        text = title,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -53,7 +56,7 @@ fun DeleteDialog(
                         .weight(weight = 1f, fill = false)
                         .align(Alignment.Start)
                 ) {
-                    Text(text = "Do you really want to delete this?")
+                    Text(text = text)
                 }
                 Box(
                     modifier = Modifier.align(Alignment.End)
@@ -64,12 +67,12 @@ fun DeleteDialog(
                         TextButton(
                             onClick = onDismiss
                         ) {
-                            Text(text = "Cancel")
+                            Text(text = stringResource(R.string.button_cancel))
                         }
                         TextButton(
                             onClick = onConfirm
                         ) {
-                            Text(text = "Delete")
+                            Text(text = stringResource(R.string.button_delete))
                         }
                     }
                 }

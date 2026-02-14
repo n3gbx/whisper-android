@@ -8,7 +8,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class StringResourceProvider @Inject constructor(
+class GetString @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     operator fun invoke(stringResource: StringResource) = stringResource.asRawString(context.resources)

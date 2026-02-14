@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -42,13 +41,16 @@ import org.n3gbx.whisper.core.Constants.BOTTOM_NAV_BAR_MIN_HEIGHT
 import org.n3gbx.whisper.feature.miniplayer.MiniPlayer
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 import org.n3gbx.whisper.feature.player.PlayerViewModel
-import org.n3gbx.whisper.ui.common.components.VerticalSlideTransitionWrapper
+import org.n3gbx.whisper.ui.common.VerticalSlideTransitionWrapper
+import org.n3gbx.whisper.ui.navigation.Catalog
 import org.n3gbx.whisper.ui.navigation.CatalogRoot
+import org.n3gbx.whisper.ui.navigation.Library
 import org.n3gbx.whisper.ui.navigation.NavBar
 import org.n3gbx.whisper.ui.navigation.NavHost
 import org.n3gbx.whisper.ui.navigation.Player
 import org.n3gbx.whisper.ui.navigation.SettingsRoot
 import org.n3gbx.whisper.ui.navigation.LibraryRoot
+import org.n3gbx.whisper.ui.navigation.Settings
 import org.n3gbx.whisper.ui.navigation.Tab
 import org.n3gbx.whisper.ui.utils.LocalHazeState
 
@@ -66,9 +68,7 @@ class MainActivity : ComponentActivity() {
         mainViewModel.reconcileDownloadedEpisodeFiles()
 
         setContent {
-            val applicationTheme by mainViewModel.applicationThemeState.collectAsStateWithLifecycle()
-
-            WhisperTheme(applicationTheme) {
+            WhisperTheme {
                 CompositionLocalProvider(
                     LocalHazeState provides rememberHazeState(),
                     LocalDensity provides Density(LocalDensity.current.density, 1f)
@@ -200,8 +200,8 @@ class MainActivity : ComponentActivity() {
 
     private fun NavDestination?.isRootTab(): Boolean {
         if (this == null) return false
-        return listOf(CatalogRoot, LibraryRoot, SettingsRoot).any { tab ->
-            this.hierarchy.any { it.hasRoute(tab::class) }
+        return listOf(Catalog, Library, Settings).any { tab ->
+            this.hasRoute(tab::class)
         }
     }
 

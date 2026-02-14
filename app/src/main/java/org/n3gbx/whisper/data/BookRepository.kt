@@ -1,6 +1,5 @@
 package org.n3gbx.whisper.data
 
-import android.media.MediaMetadataRetriever
 import androidx.media3.common.util.UnstableApi
 import androidx.room.withTransaction
 import com.google.firebase.firestore.FieldPath
@@ -16,17 +15,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.n3gbx.whisper.core.Constants.UNSET_TIME
 import org.n3gbx.whisper.core.common.EpisodeDurationProberContext
 import org.n3gbx.whisper.core.common.EpisodeDurationProberType
+import org.n3gbx.whisper.data.Mapper.mapToModel
+import org.n3gbx.whisper.data.Mapper.mapToModels
 import org.n3gbx.whisper.data.common.NetworkBoundResource
 import org.n3gbx.whisper.data.dto.BookDto
 import org.n3gbx.whisper.database.MainDatabase
 import org.n3gbx.whisper.database.dao.BookDao
 import org.n3gbx.whisper.database.dao.EpisodeDao
-import org.n3gbx.whisper.database.dao.EpisodeDownloadDao
 import org.n3gbx.whisper.database.dao.EpisodeProgressDao
 import org.n3gbx.whisper.database.entity.BookEmbeddedEntity
 import org.n3gbx.whisper.database.entity.BookEntity
@@ -35,15 +33,11 @@ import org.n3gbx.whisper.database.entity.EpisodeEmbeddedEntity
 import org.n3gbx.whisper.database.entity.EpisodeEntity
 import org.n3gbx.whisper.database.entity.EpisodeProgressEntity
 import org.n3gbx.whisper.model.Book
-import org.n3gbx.whisper.model.Episode
-import org.n3gbx.whisper.model.EpisodeProgress
 import org.n3gbx.whisper.model.BooksSortType
 import org.n3gbx.whisper.model.BooksType
 import org.n3gbx.whisper.model.DownloadState
-import org.n3gbx.whisper.model.EpisodeDownload
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.Result
-import org.n3gbx.whisper.core.common.MetadataProbePlayer
 import java.time.LocalDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -264,80 +258,6 @@ class BookRepository @Inject constructor(
 
     private fun Book.findEpisodeByTitle(title: String) = episodes.find { it.title == title }
 
-    private fun List<BookEmbeddedEntity>.mapToModels(): List<Book> {
-        return map { entity -> entity.mapToModel() }
-    }
-
-    private fun BookEmbeddedEntity.mapToModel(): Book {
-        val episodes = episodes
-            .mapToModel()
-
-        val recentEpisode = episodes
-            .sortedByDescending { it.progress.lastUpdatedAt }
-            .firstOrNull { it.isFinished.not() }
-            ?: episodes[0]
-
-        return Book(
-            id = Identifier(
-                localId = book.localId,
-                externalId = book.externalId,
-            ),
-            title = book.title,
-            author = book.author,
-            narrator = book.narrator,
-            coverUrl = book.coverUrl,
-            description = book.description,
-            isBookmarked = book.isBookmarked,
-            recentEpisode = recentEpisode,
-            episodes = episodes
-        )
-    }
-
-    private fun List<EpisodeEmbeddedEntity>.mapToModel(): List<Episode> {
-        return map { entity ->
-            Episode(
-                id = Identifier(
-                    localId = entity.episode.localId,
-                    externalId = entity.episode.externalId,
-                ),
-                bookId = Identifier(
-                    localId = entity.episode.bookLocalId,
-                    externalId = entity.episode.bookExternalId,
-                ),
-                title = entity.episode.title,
-                url = entity.episode.url,
-                duration = entity.episode.duration,
-                progress = entity.episodeProgress.mapToModel(),
-                download = entity.episodeDownload?.mapToModel(),
-                localPath = entity.episode.localPath,
-            )
-        }
-    }
-
-    private fun EpisodeProgressEntity.mapToModel(): EpisodeProgress {
-        return EpisodeProgress(
-            episodeId = Identifier(
-                localId = episodeLocalId,
-                externalId = episodeExternalId,
-            ),
-            time = time,
-            lastUpdatedAt = lastUpdatedAt
-        )
-    }
-
-    private fun EpisodeDownloadEntity.mapToModel(): EpisodeDownload {
-        return EpisodeDownload(
-            episodeId = Identifier(
-                localId = episodeLocalId,
-                externalId = episodeExternalId,
-            ),
-            workId = workId,
-            progress = progress,
-            state = state,
-            lastUpdatedAt = lastUpdatedAt
-        )
-    }
-
     private suspend fun List<EpisodeEmbeddedEntity>.probeDurations() =
         coroutineScope {
             val proberContext = episodeDurationProberContext
@@ -367,40 +287,6 @@ class BookRepository @Inject constructor(
                 }
             }.awaitAll()
         }
-
-    // Unreliable
-    private suspend fun List<EpisodeEmbeddedEntity>.withDurations() = coroutineScope {
-        map { entity ->
-            withContext(Dispatchers.IO.limitedParallelism(3)) {
-                async {
-                    if (entity.episode.duration == UNSET_TIME) {
-                        val duration = withTimeoutOrNull(5_000) {
-                            entity.getMetadataDurationBlocking()
-                        }  ?: UNSET_TIME
-
-                        entity.copy(
-                            episode = entity.episode.copy(duration = duration)
-                        )
-                    } else {
-                        entity
-                    }
-                }
-            }
-        }.awaitAll()
-    }
-
-    private fun EpisodeEmbeddedEntity.getMetadataDurationBlocking(): Long? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(episode.url, HashMap())
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong()
-        } catch (e: Throwable) {
-            e.printStackTrace()
-            null
-        } finally {
-            retriever.release()
-        }
-    }
 
     private fun List<BookEmbeddedEntity>.bookEntities() = map { it.book }
 

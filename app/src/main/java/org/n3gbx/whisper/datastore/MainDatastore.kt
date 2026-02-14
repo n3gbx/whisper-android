@@ -12,11 +12,13 @@ import javax.inject.Inject
 class MainDatastore @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) {
-    private val isDarkThemeKey = booleanPreferencesKey("is_dark_theme")
+    private val isCatalogGridLayoutEnabledKey = booleanPreferencesKey("is_catalog_grid_layout_enabled")
     private val isAutoPlayEnabledKey = booleanPreferencesKey("is_auto_play_enabled")
     private val isAutoDownloadEnabledKey = booleanPreferencesKey("is_auto_download_enabled")
     private val isDownloadWifiOnlyEnabledKey = booleanPreferencesKey("is_download_wifi_only_enabled")
     private val installationIdKey = stringPreferencesKey("installation_id")
+
+    suspend fun setCatalogGridLayoutEnabled(value: Boolean) = put(isCatalogGridLayoutEnabledKey, value)
 
     suspend fun setAutoPlayEnabled(value: Boolean) = put(isAutoPlayEnabledKey, value)
 
@@ -26,20 +28,15 @@ class MainDatastore @Inject constructor(
 
     suspend fun setInstallationId(value: String) = put(installationIdKey, value)
 
-    fun isDarkTheme() = get(isDarkThemeKey)
-
     fun isAutoPlayEnabled() = get(isAutoPlayEnabledKey, false)
 
     fun isAutoDownloadEnabled() = get(isAutoDownloadEnabledKey, false)
 
     fun isDownloadWifiOnlyEnabled() = get(isDownloadWifiOnlyEnabledKey, false)
 
-    fun getInstallationId() = get(installationIdKey)
+    fun isCatalogGridLayoutEnabled() = get(isCatalogGridLayoutEnabledKey, false)
 
-    suspend fun setIsDarkTheme(value: Boolean?) {
-        if (value == null) remove(isDarkThemeKey)
-        else put(isDarkThemeKey, value)
-    }
+    fun getInstallationId() = get(installationIdKey)
 
     suspend fun clear() {
         dataStore.edit {

@@ -1,4 +1,4 @@
-package org.n3gbx.whisper.ui.common.components
+package org.n3gbx.whisper.ui.common
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope

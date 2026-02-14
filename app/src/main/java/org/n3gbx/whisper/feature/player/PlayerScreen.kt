@@ -58,6 +58,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,12 +70,13 @@ import org.n3gbx.whisper.model.Episode
 import org.n3gbx.whisper.model.EpisodeDownload
 import org.n3gbx.whisper.model.Identifier
 import org.n3gbx.whisper.model.ProgressType
-import org.n3gbx.whisper.ui.common.components.BookmarkIcon
-import org.n3gbx.whisper.ui.common.components.DropdownMenuBox
+import org.n3gbx.whisper.ui.common.BookmarkIcon
+import org.n3gbx.whisper.ui.common.DropdownMenuBox
 import org.n3gbx.whisper.ui.theme.WhisperTheme
 import org.n3gbx.whisper.ui.utils.convertToTime
 import org.n3gbx.whisper.ui.utils.toolbarColors
 import org.n3gbx.whisper.utils.applyIf
+import org.n3gbx.whisper.utils.asRawString
 
 @Composable
 fun PlayerScreen(
@@ -243,7 +245,7 @@ private fun DescriptionSheet(
             )
             if (!narrator.isNullOrBlank()) {
                 Text(
-                    text = "Narrator: $narrator",
+                    text = stringResource(R.string.player_narrator_title, narrator),
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -269,7 +271,7 @@ private fun Toolbar(
             title?.let {
                 Text(
                     modifier = Modifier.basicMarquee(),
-                    text = "Episode: $title",
+                    text = stringResource(R.string.player_episode_title, title),
                 )
             }
         },
@@ -279,7 +281,7 @@ private fun Toolbar(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.ArrowBack,
-                    contentDescription = "Back"
+                    contentDescription = null
                 )
             }
         },
@@ -290,7 +292,7 @@ private fun Toolbar(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Notes,
-                        contentDescription = "More"
+                        contentDescription = null
                     )
                 }
             }
@@ -345,7 +347,7 @@ private fun Episodes(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Episodes",
+                text = stringResource(R.string.player_episodes_title),
                 style = MaterialTheme.typography.titleMedium
             )
             Column(
@@ -723,7 +725,7 @@ private fun RewindForward(
         Icon(
             modifier = Modifier.size(48.dp),
             imageVector = Icons.Rounded.Forward10,
-            contentDescription = "Rewind 10 seconds forward"
+            contentDescription = null
         )
     }
 }
@@ -742,7 +744,7 @@ private fun RewindBackward(
         Icon(
             modifier = Modifier.size(48.dp),
             imageVector = Icons.Rounded.Replay10,
-            contentDescription = "Rewind 10 seconds backward"
+            contentDescription = null
         )
     }
 }
@@ -761,12 +763,14 @@ private fun Speed(
         if (selectedOption == SpeedOption.X1) MaterialTheme.colorScheme.onSurface
         else MaterialTheme.colorScheme.primary
 
+    val context = LocalContext.current
+
     DropdownMenuBox(
         modifier = modifier,
         isVisible = isDropdownMenuVisible,
         options = options,
         selectedOption = selectedOption,
-        optionLabel = { it.label },
+        optionLabel = { it.label.asRawString(context.resources) },
         onSelect = onChange,
         onReset = { onChange(SpeedOption.X1) },
         onDismiss = {
@@ -781,7 +785,7 @@ private fun Speed(
         ) {
             Icon(
                 imageVector = Icons.Filled.Speed,
-                contentDescription = "Speed",
+                contentDescription = null,
                 tint = color
             )
         }
@@ -802,12 +806,14 @@ private fun SleepTimer(
         if (selectedOption == null) MaterialTheme.colorScheme.onSurface
         else MaterialTheme.colorScheme.primary
 
+    val context = LocalContext.current
+
     DropdownMenuBox(
         modifier = modifier,
         isVisible = isDropdownMenuVisible,
         options = options,
         selectedOption = selectedOption,
-        optionLabel = { it.label },
+        optionLabel = { it.label.asRawString(context.resources) },
         onSelect = onChange,
         onReset = { onChange(null) },
         onDismiss = {
@@ -822,7 +828,7 @@ private fun SleepTimer(
         ) {
             Icon(
                 imageVector = Icons.Outlined.Timer,
-                contentDescription = "Sleep Timer",
+                contentDescription = null,
                 tint = color
             )
         }

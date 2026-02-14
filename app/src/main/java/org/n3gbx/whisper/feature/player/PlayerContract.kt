@@ -1,7 +1,10 @@
 package org.n3gbx.whisper.feature.player
 
 import androidx.compose.runtime.Immutable
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.model.Book
+import org.n3gbx.whisper.model.StringResource
+import org.n3gbx.whisper.model.StringResource.Companion.fromRes
 
 @Immutable
 data class PlayerUiState(
@@ -43,24 +46,24 @@ sealed interface PlayerUiEvent {
 @Immutable
 enum class SpeedOption(
     val value: Float,
-    val label: String
+    val label: StringResource
 ) {
-    X0_50(0.25f, "0.25x"),
-    X0_75(0.75f, "0.75x"),
-    X1(1f, "1x"),
-    X1_25(1.25f, "1.25x"),
-    X1_50(1.5f, "1.5x")
+    X0_25(0.25f, fromRes(R.string.player_speed_0_25x)),
+    X0_75(0.75f, fromRes(R.string.player_speed_0_75x)),
+    X1(1f, fromRes(R.string.player_speed_1x)),
+    X1_25(1.25f, fromRes(R.string.player_speed_1_25x)),
+    X1_50(1.5f, fromRes(R.string.player_speed_1_50x))
 }
 
 @Immutable
 enum class SleepTimerOption(
     val value: Long,
-    val label: String
+    val label: StringResource
 ) {
-    FIVE_MINUTES(5 * 60 * 1000,"5 minutes"),
-    FIFTEEN_MINUTES(15 * 60 * 1000, "15 minutes"),
-    THIRTY_MINUTES(30 * 60 * 1000, "30 minutes"),
-    FORTY_FIVE_MINUTES(45 * 60 * 1000, "45 minutes"),
-    SIXTY_MINUTES(60 * 60 * 1000, "60 minutes"),
-    END_OF_EPISODE(-1L, "End of episode")
+    FIVE_MINUTES(5 * 60 * 1000, fromRes(R.string.player_timer_5_minutes)),
+    FIFTEEN_MINUTES(15 * 60 * 1000, fromRes(R.string.player_timer_15_minutes)),
+    THIRTY_MINUTES(30 * 60 * 1000, fromRes(R.string.player_timer_30_minutes)),
+    FORTY_FIVE_MINUTES(45 * 60 * 1000, fromRes(R.string.player_timer_45_minutes)),
+    SIXTY_MINUTES(60 * 60 * 1000, fromRes(R.string.player_timer_60_minutes)),
+    END_OF_EPISODE(-1L, fromRes(R.string.player_timer_end_of_episode))
 }

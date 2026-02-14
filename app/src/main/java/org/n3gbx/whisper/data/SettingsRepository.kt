@@ -1,14 +1,15 @@
 package org.n3gbx.whisper.data
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.withContext
+import org.n3gbx.whisper.database.MainDatabase
 import org.n3gbx.whisper.datastore.MainDatastore
-import org.n3gbx.whisper.model.ApplicationTheme
 import javax.inject.Inject
 
 class SettingsRepository @Inject constructor(
-    private val datastore: MainDatastore
+    private val datastore: MainDatastore,
+    private val database: MainDatabase,
 ) {
 
     fun getAutoPlaySetting(): Flow<Boolean> = datastore.isAutoPlayEnabled()
@@ -17,17 +18,9 @@ class SettingsRepository @Inject constructor(
 
     fun getDownloadWifiOnlySetting(): Flow<Boolean> = datastore.isDownloadWifiOnlyEnabled()
 
-    fun getInstallationId(): Flow<String?> = datastore.getInstallationId()
+    fun getCatalogGridLayoutSetting(): Flow<Boolean> = datastore.isCatalogGridLayoutEnabled()
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun getThemeSetting(): Flow<ApplicationTheme> = datastore.isDarkTheme()
-        .mapLatest {
-            when (it) {
-                true -> ApplicationTheme.DARK
-                false -> ApplicationTheme.LIGHT
-                null -> ApplicationTheme.SYSTEM
-            }
-        }
+    fun getInstallationId(): Flow<String?> = datastore.getInstallationId()
 
     suspend fun setAutoPlaySetting(value: Boolean) = datastore.setAutoPlayEnabled(value)
 
@@ -37,13 +30,12 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setInstallationId(value: String) = datastore.setInstallationId(value)
 
-    suspend fun setThemeSetting(value: ApplicationTheme) {
-        when (value) {
-            ApplicationTheme.DARK -> datastore.setIsDarkTheme(true)
-            ApplicationTheme.LIGHT -> datastore.setIsDarkTheme(false)
-            ApplicationTheme.SYSTEM -> datastore.setIsDarkTheme(null)
+    suspend fun setCatalogGridLayoutSetting(value: Boolean) = datastore.setCatalogGridLayoutEnabled(value)
+
+    suspend fun clearLocalData() {
+        withContext(Dispatchers.IO) {
+            datastore.clear()
+            database.clear()
         }
     }
-
-    suspend fun resetSettings() = datastore.clear()
 }

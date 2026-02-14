@@ -9,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.n3gbx.whisper.core.common.GetEpisodesCacheDir
 import org.n3gbx.whisper.data.EpisodeRepository
 import timber.log.Timber
 import java.io.File
@@ -18,6 +19,7 @@ class EpisodeDownloadWorker(
     appContext: Context,
     workerParams: WorkerParameters,
     private val episodeRepository: EpisodeRepository,
+    private val getEpisodesCacheDir: GetEpisodesCacheDir,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -29,10 +31,7 @@ class EpisodeDownloadWorker(
 
         Timber.tag(LOG_TAG).d("Input: episodeUrl=%s, episodeLocalId=%s, bookLocalId=%s", episodeUrl, episodeLocalId, bookLocalId)
 
-        val episodesDir = File(
-            applicationContext.externalCacheDir,
-            "episodes",
-        )
+        val episodesDir = getEpisodesCacheDir()
 
         if (!episodesDir.exists()) {
             Timber.tag(LOG_TAG).d("Make dir: %s", episodesDir.absolutePath)

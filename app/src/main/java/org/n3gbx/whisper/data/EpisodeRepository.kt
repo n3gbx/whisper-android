@@ -2,6 +2,8 @@ package org.n3gbx.whisper.data
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import org.n3gbx.whisper.data.Mapper.mapToModel
 import org.n3gbx.whisper.database.MainDatabase
 import org.n3gbx.whisper.database.dao.EpisodeDao
 import org.n3gbx.whisper.database.dao.EpisodeDownloadDao
@@ -99,8 +101,11 @@ class EpisodeRepository @Inject constructor(
     }
 
     fun getDownloadedEpisodes() =
-        episodeDao.getDownloadedEpisodes()
+        episodeDao.getDownloadedEpisodes().map { it.mapToModel() }
 
     suspend fun clearEpisodeLocalPath(episodeLocalId: String) =
         episodeDao.clearEpisodeLocalPath(episodeLocalId)
+
+    suspend fun clearAllEpisodesLocalPaths() =
+        episodeDao.clearAllEpisodesLocalPaths()
 }

@@ -39,13 +39,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import org.n3gbx.whisper.R
 import org.n3gbx.whisper.feature.player.PlayerViewModel
-import org.n3gbx.whisper.ui.common.components.VerticalSlideTransitionWrapper
+import org.n3gbx.whisper.ui.common.VerticalSlideTransitionWrapper
 
 @Composable
 fun MiniPlayer(
@@ -166,7 +168,7 @@ private fun RowScope.Heading(
         )
         Text(
             modifier = Modifier.basicMarquee(),
-            text = "Episode: $subtitle",
+            text = stringResource(R.string.player_episode_title, subtitle),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall,
@@ -212,7 +214,7 @@ private fun RowScope.Controls(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss"
+                    contentDescription = null
                 )
             }
         }

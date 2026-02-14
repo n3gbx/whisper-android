@@ -35,4 +35,8 @@ abstract class MainDatabase : RoomDatabase() {
     abstract fun episodeDao() : EpisodeDao
     abstract fun episodeProgressDao() : EpisodeProgressDao
     abstract fun episodeDownloadDao() : EpisodeDownloadDao
+
+    fun clear() {
+        clearAllTables()
+    }
 }

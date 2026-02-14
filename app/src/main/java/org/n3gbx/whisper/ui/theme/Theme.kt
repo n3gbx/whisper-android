@@ -74,26 +74,10 @@ private val darkColorScheme = darkColorScheme(
 
 @Composable
 fun WhisperTheme(
-    applicationTheme: ApplicationTheme = ApplicationTheme.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val isDarkTheme = when (applicationTheme) {
-        ApplicationTheme.SYSTEM -> isSystemInDarkTheme()
-        ApplicationTheme.DARK -> true
-        ApplicationTheme.LIGHT -> false
-    }
-    val systemUiController = rememberSystemUiController()
-
-    DisposableEffect(systemUiController, isDarkTheme) {
-        systemUiController.setSystemBarsColor(
-            color = Color.Transparent,
-            darkIcons = !isDarkTheme
-        )
-        onDispose {}
-    }
-
     val colorScheme = when {
-        isDarkTheme -> darkColorScheme
+        isSystemInDarkTheme() -> darkColorScheme
         else -> lightColorScheme
     }
 
