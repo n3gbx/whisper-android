@@ -13,16 +13,16 @@ Audiobooks Android application <br/>
 - MVI
 
 ## Features
-- Catalog (caching, search, sort, view)
-- MyLibrary (started, finished, saved, downloaded (soon))
-- Player (pause/play, episodes navigation, rewind forward/backward/manual, progress cache, sleep timer, playback speed)
-- Settings (soon)
+- Catalog of audiobooks with search, caching, and force refresh
+- Audio player with automatic episode playback caching, sleep timer, playback speed, auto-play, auto-download, and cache auto-release
+- Library of started, finished, and bookmarked books
 
 ## Preview
 <p style="margin : 0" align="center">
-  <img src="https://github.com/user-attachments/assets/3469acfc-23b7-484c-b1b7-ca1c325c2ce9" height="500">
-  <img src="https://github.com/user-attachments/assets/5b96427b-b2e4-4c00-8c22-7b8edd29f43d" height="500">
-  <img src="https://github.com/user-attachments/assets/a8ed30a9-de9e-4473-b129-ceabad3f3257" height="500">
+  <img src="https://github.com/user-attachments/assets/b0e16b64-eea8-4fb3-bab2-f37726b96779" height="400">
+  <img src="https://github.com/user-attachments/assets/d5cff842-4f94-419b-b92b-53bad9e8304b" height="400">
+  <img src="https://github.com/user-attachments/assets/102b81fc-8c2c-4d87-8231-d4de79af5806" height="400">
+  <img src="https://github.com/user-attachments/assets/a5d89f0c-1138-41ba-b5c7-ac4e3113f107" height="400">
 </p>
 
 
