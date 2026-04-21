@@ -51,10 +51,12 @@ class PlayerPlaybackService : MediaSessionService() {
     private fun stopAndReleasePlayer() {
         mediaSession?.run {
             player.stop() // abandons audio focus immediately
+            player.clearMediaItems() // clear media items
             player.release()  // releases codecs / audio resources
             release() // releases MediaSession
             mediaSession = null
         }
+        stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 

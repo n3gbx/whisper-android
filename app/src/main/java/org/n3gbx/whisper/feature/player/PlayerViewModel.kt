@@ -24,7 +24,6 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -48,7 +47,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.n3gbx.whisper.R
 import org.n3gbx.whisper.data.BookRepository
 import org.n3gbx.whisper.data.EpisodeRepository
@@ -71,6 +69,7 @@ import org.n3gbx.whisper.model.ConnectionType.WIFI
 import org.n3gbx.whisper.model.PlaybackSource
 import org.n3gbx.whisper.model.StringResource.Companion.fromRes
 import org.n3gbx.whisper.utils.connectionTypeFlow
+import com.google.common.util.concurrent.ListenableFuture
 import timber.log.Timber
 import java.io.File
 import java.util.UUID
@@ -89,6 +88,7 @@ class PlayerViewModel @Inject constructor(
 ) : ViewModel() {
 
     private var controller: MediaController? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
     private var currentBookId: Identifier? = null
     private var bookJob: Job? = null
     private var playbackPositionForProgressCacheJob: Job? = null
@@ -517,14 +517,16 @@ class PlayerViewModel @Inject constructor(
 
     private fun initController(onComplete: (MediaController) -> Unit = {}) {
         val sessionToken = SessionToken(context, ComponentName(context, PlayerPlaybackService::class.java))
-        val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
+        val future = MediaController.Builder(context, sessionToken).buildAsync()
+        controllerFuture = future
 
         Timber.tag(LOG_TAG).d("Init controller started: sessionToken=%s", sessionToken.uid)
 
-        controllerFuture.addListener(
+        future.addListener(
             {
+                if (future.isCancelled) return@addListener
                 try {
-                    val newController = controllerFuture.get()
+                    val newController = future.get()
                     controller = newController
                     newController.addListener(ControllerListener())
 
@@ -541,7 +543,8 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun releaseController() {
-        controller?.release()
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
         controller = null
     }
 
