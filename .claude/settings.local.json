@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./gradlew testDebugUnitTest --rerun-tasks)"
+      "Bash(./gradlew testDebugUnitTest --rerun-tasks)",
+      "Read(//mnt/d/Code/Projects/**)",
+      "Bash(./gradlew :app:compileDebugKotlin)",
+      "Bash(tasklist *)",
+      "PowerShell(Stop-Process *)",
+      "Bash(./gradlew --stop)",
+      "Bash(./gradlew :app:testDebugUnitTest --tests \"org.n3gbx.whisper.feature.settings.SettingsViewModelTest\")"
     ]
   }
 }
