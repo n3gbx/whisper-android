@@ -40,7 +40,7 @@ class DownloadsViewModel @Inject constructor(
                 .onStart { _uiState.update { it.copy(isLoading = true) } }
                 .map { episodes ->
                     episodes.map { episode ->
-                        val fileSizeMb = episode.getFileSizeMb()?.let { "$it Mb" } ?: "??? Mb"
+                        val fileSizeMb = episode.getFileSizeMb()?.let { "$it MB" } ?: "??? MB"
                         episode to fileSizeMb
                     }
                 }

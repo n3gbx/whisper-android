@@ -13,3 +13,7 @@ data class LibraryUiState(
 ) {
     val selectedBooksType = booksTypes[selectedBooksTypeIndex]
 }
+
+sealed interface LibraryUiEvent {
+    data class ShowMessage(val message: String): LibraryUiEvent
+}

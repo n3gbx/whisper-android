@@ -110,6 +110,14 @@ class CatalogViewModel @Inject constructor(
             }
             .onEach { (booksResult, isGridLayout) ->
                 when (booksResult) {
+                    is Result.Loading -> {
+                        _uiState.update {
+                            it.copy(
+                                isGridLayout = isGridLayout,
+                                isLoading = true,
+                            )
+                        }
+                    }
                     is Result.Success -> {
                         _uiState.update {
                             it.copy(
@@ -119,7 +127,8 @@ class CatalogViewModel @Inject constructor(
                             )
                         }
                     }
-                    else -> {
+                    is Result.Error -> {
+                        // Temp stub
                         _uiState.update {
                             it.copy(isLoading = true)
                         }

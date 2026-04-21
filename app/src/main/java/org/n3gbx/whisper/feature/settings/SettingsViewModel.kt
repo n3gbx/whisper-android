@@ -3,7 +3,6 @@ package org.n3gbx.whisper.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -12,14 +11,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.n3gbx.whisper.BuildConfig
 import org.n3gbx.whisper.R
-import org.n3gbx.whisper.core.common.GetEpisodesCacheDir
 import org.n3gbx.whisper.core.common.GetString
 import org.n3gbx.whisper.data.SettingsRepository
 import org.n3gbx.whisper.domain.DeleteLocalDataUseCase
-import org.n3gbx.whisper.model.StringResource
 import org.n3gbx.whisper.model.StringResource.Companion.fromRes
 import javax.inject.Inject
 
@@ -88,7 +84,7 @@ class SettingsViewModel @Inject constructor(
     fun onClearApplicationDataDialogConfirm() {
         viewModelScope.launch {
             if (!deleteLocalData()) {
-                _uiEvents.emit(SettingsUiEvent.ShowMessage(getString(fromRes(R.string.error_general))))
+                _uiEvents.emit(SettingsUiEvent.ShowMessage(getString(fromRes(R.string.error_generic))))
             } else {
                 _uiEvents.emit(SettingsUiEvent.Restart)
             }
