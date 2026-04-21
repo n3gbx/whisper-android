@@ -37,7 +37,7 @@ data class SettingsUiState(
         Toggle(autoDownload, AUTO_DOWNLOAD, CONTENT),
         Toggle(optimizeCache, CACHE_OPTIMIZATION, CONTENT),
         Toggle(downloadWifiOnly, DOWNLOAD_WIFI_ONLY, CONTENT),
-        Link(BACKUP, DATA),
+        Link("https://developer.android.com/identity/data/autobackup#BackupLocation", BACKUP, DATA),
         Button(DOWNLOADS, DATA),
         Button(CLEAR_DATA, DATA),
         Value(version, VERSION, OTHER),
@@ -72,6 +72,7 @@ sealed interface Setting {
 
     @Immutable
     data class Link(
+        val url: String,
         override val type: Type,
         override val section: Section,
     ): Setting

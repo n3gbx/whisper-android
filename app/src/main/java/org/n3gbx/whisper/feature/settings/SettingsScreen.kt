@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.n3gbx.whisper.R
-import org.n3gbx.whisper.model.ApplicationTheme
 import org.n3gbx.whisper.ui.common.DeleteDialog
 import org.n3gbx.whisper.ui.utils.bottomNavBarPadding
 import org.n3gbx.whisper.ui.utils.toolbarColors
@@ -112,7 +111,7 @@ private fun SettingsContent(
                     title = section.title.asRawString()
                 ) {
                     settings.forEach { setting ->
-                        Setting(
+                        SettingItem(
                             setting = setting,
                             onSettingClick = onSettingClick
                         )
@@ -124,48 +123,40 @@ private fun SettingsContent(
 }
 
 @Composable
-private fun Setting(
+private fun SettingItem(
     modifier: Modifier = Modifier,
     setting: Setting,
     onSettingClick: (Setting) -> Unit
 ) {
     when (setting) {
-        is Setting.Toggle -> {
-            ToggleSetting(
-                modifier = modifier,
-                value = setting.value,
-                title = setting.type.title.asRawString(),
-                description = setting.type.description?.asRawString(),
-                onClick = { onSettingClick(setting) }
-            )
-        }
-        is Setting.Value<*> -> {
-            SelectSetting(
-                modifier = modifier,
-                value = setting.value,
-                title = setting.type.title.asRawString(),
-                description = setting.type.description?.asRawString(),
-                onClick = { onSettingClick(setting) }
-            )
-        }
-        is Setting.Button -> {
-            ButtonSetting(
-                modifier = modifier,
-                title = setting.type.title.asRawString(),
-                description = setting.type.description?.asRawString(),
-                icon = Icons.Default.KeyboardArrowRight,
-                onClick = { onSettingClick(setting) }
-            )
-        }
-        is Setting.Link -> {
-            ButtonSetting(
-                modifier = modifier,
-                title = setting.type.title.asRawString(),
-                description = setting.type.description?.asRawString(),
-                icon = Icons.Default.OpenInNew,
-                onClick = { onSettingClick(setting) }
-            )
-        }
+        is Setting.Toggle -> ToggleSetting(
+            modifier = modifier,
+            value = setting.value,
+            title = setting.type.title.asRawString(),
+            description = setting.type.description?.asRawString(),
+            onClick = { onSettingClick(setting) }
+        )
+        is Setting.Value<*> -> ValueSetting(
+            modifier = modifier,
+            value = setting.value,
+            title = setting.type.title.asRawString(),
+            description = setting.type.description?.asRawString(),
+            onClick = { onSettingClick(setting) }
+        )
+        is Setting.Button -> ButtonSetting(
+            modifier = modifier,
+            title = setting.type.title.asRawString(),
+            description = setting.type.description?.asRawString(),
+            icon = Icons.Default.KeyboardArrowRight,
+            onClick = { onSettingClick(setting) }
+        )
+        is Setting.Link -> ButtonSetting(
+            modifier = modifier,
+            title = setting.type.title.asRawString(),
+            description = setting.type.description?.asRawString(),
+            icon = Icons.Default.OpenInNew,
+            onClick = { onSettingClick(setting) }
+        )
     }
 }
 
@@ -226,7 +217,7 @@ private fun ToggleSetting(
 }
 
 @Composable
-private fun <T> SelectSetting(
+private fun <T> ValueSetting(
     modifier: Modifier = Modifier,
     isEnabled: Boolean = true,
     title: String,
@@ -251,18 +242,7 @@ private fun <T> SelectSetting(
             }
         },
         value = {
-            Text(
-                text = when {
-                    value is ApplicationTheme -> {
-                        when (value) {
-                            ApplicationTheme.SYSTEM -> "System default"
-                            ApplicationTheme.LIGHT -> "Light"
-                            ApplicationTheme.DARK -> "Dark"
-                        }
-                    }
-                    else -> value.toString()
-                }
-            )
+            Text(text = value.toString())
         }
     )
 }

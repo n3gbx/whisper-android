@@ -8,7 +8,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.n3gbx.whisper.BuildConfig
@@ -16,6 +19,12 @@ import org.n3gbx.whisper.R
 import org.n3gbx.whisper.core.common.GetString
 import org.n3gbx.whisper.data.SettingsRepository
 import org.n3gbx.whisper.domain.DeleteLocalDataUseCase
+import org.n3gbx.whisper.feature.settings.Setting.Type.AUTO_DOWNLOAD
+import org.n3gbx.whisper.feature.settings.Setting.Type.AUTO_PLAY
+import org.n3gbx.whisper.feature.settings.Setting.Type.CACHE_OPTIMIZATION
+import org.n3gbx.whisper.feature.settings.Setting.Type.CLEAR_DATA
+import org.n3gbx.whisper.feature.settings.Setting.Type.DOWNLOAD_WIFI_ONLY
+import org.n3gbx.whisper.feature.settings.Setting.Type.DOWNLOADS
 import org.n3gbx.whisper.model.StringResource.Companion.fromRes
 import javax.inject.Inject
 
@@ -27,52 +36,47 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState: StateFlow<SettingsUiState> = _uiState
+    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     private val _uiEvents = MutableSharedFlow<SettingsUiEvent>()
     val uiEvents: SharedFlow<SettingsUiEvent> = _uiEvents.asSharedFlow()
 
     init {
-        viewModelScope.launch {
-            combine(
-                settingsRepository.getAutoPlaySetting(),
-                settingsRepository.getAutoDownloadSetting(),
-                settingsRepository.getDownloadWifiOnlySetting(),
-                settingsRepository.getInstallationId(),
-                settingsRepository.getCacheOptimizationSetting(),
-            ) { autoPlay, autoDownload, downloadWifiOnly, installationId, optimizeCache ->
-                SettingsUiState(
-                    autoPlay = autoPlay,
-                    autoDownload = autoDownload,
-                    optimizeCache = optimizeCache,
-                    downloadWifiOnly = downloadWifiOnly,
-                    version = BuildConfig.VERSION_NAME,
-                    installationId = installationId
-                )
-            }.collect {
-                _uiState.value = it
-            }
-        }
+        combine(
+            settingsRepository.getAutoPlaySetting(),
+            settingsRepository.getAutoDownloadSetting(),
+            settingsRepository.getDownloadWifiOnlySetting(),
+            settingsRepository.getInstallationId(),
+            settingsRepository.getCacheOptimizationSetting(),
+        ) { autoPlay, autoDownload, downloadWifiOnly, installationId, optimizeCache ->
+            SettingsUiState(
+                autoPlay = autoPlay,
+                autoDownload = autoDownload,
+                optimizeCache = optimizeCache,
+                downloadWifiOnly = downloadWifiOnly,
+                version = BuildConfig.VERSION_NAME,
+                installationId = installationId
+            )
+        }.onEach { _uiState.value = it }.launchIn(viewModelScope)
     }
 
     fun onSettingClick(setting: Setting) {
         viewModelScope.launch {
-            when {
-                setting is Setting.Toggle && setting.type == Setting.Type.AUTO_PLAY ->
-                    settingsRepository.setAutoPlaySetting(!setting.value)
-                setting is Setting.Toggle && setting.type == Setting.Type.AUTO_DOWNLOAD ->
-                    settingsRepository.setAutoDownloadSetting(!setting.value)
-                setting is Setting.Toggle && setting.type == Setting.Type.CACHE_OPTIMIZATION ->
-                    settingsRepository.setCacheOptimizationSetting(!setting.value)
-                setting is Setting.Toggle && setting.type == Setting.Type.DOWNLOAD_WIFI_ONLY ->
-                    settingsRepository.setDownloadWifiOnlySetting(!setting.value)
-                setting is Setting.Button && setting.type == Setting.Type.DOWNLOADS ->
-                    _uiEvents.emit(SettingsUiEvent.NavigateToDownloads)
-                setting is Setting.Link && setting.type == Setting.Type.BACKUP ->
-                    _uiEvents.emit(SettingsUiEvent.NavigateToBrowser("https://developer.android.com/identity/data/autobackup#BackupLocation"))
-                setting is Setting.Button && setting.type == Setting.Type.CLEAR_DATA ->
-                    _uiState.update { it.copy(showClearApplicationDataDialog = true) }
-                else -> {}
+            when (setting) {
+                is Setting.Toggle -> when (setting.type) {
+                    AUTO_PLAY -> settingsRepository.setAutoPlaySetting(!_uiState.value.autoPlay)
+                    AUTO_DOWNLOAD -> settingsRepository.setAutoDownloadSetting(!_uiState.value.autoDownload)
+                    CACHE_OPTIMIZATION -> settingsRepository.setCacheOptimizationSetting(!_uiState.value.optimizeCache)
+                    DOWNLOAD_WIFI_ONLY -> settingsRepository.setDownloadWifiOnlySetting(!_uiState.value.downloadWifiOnly)
+                    else -> {}
+                }
+                is Setting.Link -> _uiEvents.emit(SettingsUiEvent.NavigateToBrowser(setting.url))
+                is Setting.Button -> when (setting.type) {
+                    DOWNLOADS -> _uiEvents.emit(SettingsUiEvent.NavigateToDownloads)
+                    CLEAR_DATA -> _uiState.update { it.copy(showClearApplicationDataDialog = true) }
+                    else -> {}
+                }
+                is Setting.Value<*> -> {}
             }
         }
     }
